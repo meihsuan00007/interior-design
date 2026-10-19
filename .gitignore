@@ -1,0 +1,21 @@
+# 真實歷史報價資料（含業主地址、銀行帳號等個資）——絕對不得提交
+data/legacy/
+
+# 環境變數與金鑰
+.env
+.env.*
+!.env.example
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+coverage/
+
+# 其他
+.DS_Store
+Thumbs.db
+*.log
+
+# 子代理開發工作區
+.superpowers/
