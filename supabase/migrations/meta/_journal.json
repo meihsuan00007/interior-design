@@ -29,6 +29,20 @@
       "when": 1792435387498,
       "tag": "20261019184307_rls_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792436332645,
+      "tag": "20261019185852_login_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792436333578,
+      "tag": "20261019185853_mfa_enforcement",
+      "breakpoints": true
     }
   ]
 }

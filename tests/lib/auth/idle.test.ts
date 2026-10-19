@@ -16,3 +16,16 @@ test("閒置 121 分鐘逾時", () => {
 test("尚無活動紀錄（null）不算逾時", () => {
   expect(isSessionIdle(null, now, 120)).toBe(false);
 });
+
+import { parseIdleMinutes } from "@/lib/auth/idle";
+
+test("parseIdleMinutes：正整數、預設值與上限", () => {
+  expect(parseIdleMinutes("1")).toBe(1);
+  expect(parseIdleMinutes("90.9")).toBe(90);
+  expect(parseIdleMinutes(undefined)).toBe(120);
+  expect(parseIdleMinutes("")).toBe(120);
+  expect(parseIdleMinutes("abc")).toBe(120);
+  expect(parseIdleMinutes("0")).toBe(120);
+  expect(parseIdleMinutes("-5")).toBe(120);
+  expect(parseIdleMinutes("99999999")).toBe(7 * 24 * 60);
+});
