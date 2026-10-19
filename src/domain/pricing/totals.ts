@@ -26,7 +26,9 @@ export function computeQuoteTotals(input: QuoteTotalsInput): QuoteTotals {
       if (src.includeInMgmtFee) s1 = s1.plus(r.clientTotal);
       else s2 = s2.plus(r.clientTotal);
     }
-    if (r.countsInTotal || src.isComplimentary) {
+    const complimentaryCosted =
+      src.isComplimentary && !src.isOptional && !src.isOwnerSupplied && !src.isPaidDirectlyByOwner;
+    if (r.countsInTotal || complimentaryCosted) {
       costTotal = costTotal.plus(r.cost ?? 0);
       if (r.costSource === null) none++;
       else if (r.costSource === "settlement" || r.costSource === "settlement_allocated") settlement++;

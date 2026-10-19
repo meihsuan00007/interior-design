@@ -109,4 +109,66 @@ describe("computeQuoteTotals", () => {
     expect(t.markupRate).toBeNull();
     expect(t.marginRate).toBeNull();
   });
+  test("母項帶業主直付子項：S1 只含母項", () => {
+    const t = computeQuoteTotals(
+      input({
+        items: [
+          item({ id: "p", quantity: D(1), clientUnitPrice: D("100000") }),
+          item({ id: "k", parentId: "p", quantity: D(1), clientUnitPrice: D("69500"), isPaidDirectlyByOwner: true, includeInMgmtFee: false }),
+        ],
+      }),
+    );
+    expect([t.s1, t.mgmtFee].map(String)).toEqual(["100000", "10000"]);
+    expect(t.items.find((r) => r.id === "p")!.clientTotal.toString()).toBe("100000");
+  });
+  test("母項帶計入的子項：以合計進 S1", () => {
+    const t = computeQuoteTotals(
+      input({
+        items: [
+          item({ id: "p", quantity: D(1), clientUnitPrice: D("1000") }),
+          item({ id: "k", parentId: "p", quantity: D(2), clientUnitPrice: D("250") }),
+        ],
+      }),
+    );
+    expect(t.s1.toString()).toBe("1500");
+  });
+  test("選配、業主自備、管銷服務不進 S1／S2", () => {
+    const t = computeQuoteTotals(
+      input({
+        items: [
+          item({ id: "a", quantity: D(1), clientUnitPrice: D("100") }),
+          item({ id: "b", quantity: D(1), clientUnitPrice: D("200"), isOptional: true }),
+          item({ id: "c", quantity: D(1), clientUnitPrice: D("300"), isOwnerSupplied: true, includeInMgmtFee: false }),
+          item({ id: "d", quantity: D(1), clientUnitPrice: D("400"), isComplimentary: true, includeInMgmtFee: false }),
+        ],
+      }),
+    );
+    expect([t.s1, t.s2].map(String)).toEqual(["100", "0"]);
+  });
+  test("成本來源：分攤結算算結算，混用來源算報價", () => {
+    const link = (id: string) => ({ costItemId: id, allocationRatio: D(1) });
+    const t = computeQuoteTotals(
+      input({
+        items: [
+          item({ id: "a", quantity: D(1), clientUnitPrice: D("100"), costLinks: [link("c1")] }),
+          item({ id: "b", quantity: D(1), clientUnitPrice: D("100"), costLinks: [link("c2"), link("c3")] }),
+        ],
+        effectiveCosts: new Map([
+          ["c1", { amount: D("50"), source: "settlement_allocated" as const, date: "2026-01-01" }],
+          ["c2", { amount: D("50"), source: "settlement" as const, date: "2026-01-01" }],
+          ["c3", { amount: D("50"), source: "quote" as const, date: "2026-01-01" }],
+        ]),
+      }),
+    );
+    expect(t.costSourceSummary.label).toBe("1 項結算／1 項報價");
+  });
+  test("管銷服務同時為選配時，成本不計入總成本", () => {
+    const t = computeQuoteTotals(
+      input({
+        items: [item({ id: "a", quantity: D(1), clientUnitPrice: D(0), isComplimentary: true, isOptional: true, costLinks: [{ costItemId: "c", allocationRatio: D(1) }] })],
+        effectiveCosts: new Map([["c", { amount: D("100"), source: "quote" as const, date: "2025-07-14" }]]),
+      }),
+    );
+    expect(t.costTotal.toString()).toBe("0");
+  });
 });

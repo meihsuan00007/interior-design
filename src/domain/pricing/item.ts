@@ -29,6 +29,18 @@ function resolveCost(
 
 /** 計算每個項目的對客金額、成本、毛利與加成率（單層母子）。 */
 export function computeItems(items: QuoteItemInput[], costs: Map<string, EffectiveCost>): QuoteItemResult[] {
+  const byId = new Map<string, QuoteItemInput>();
+  for (const i of items) {
+    if (byId.has(i.id)) throw new Error(`項目 id 重複：${i.id}`);
+    byId.set(i.id, i);
+  }
+  for (const i of items) {
+    if (i.parentId === null) continue;
+    const parent = byId.get(i.parentId);
+    if (!parent) throw new Error(`項目 ${i.id} 的母項 ${i.parentId} 不存在`);
+    if (parent.parentId !== null) throw new Error(`項目 ${i.id} 的母項 ${parent.id} 本身也是子項，只支援單層母子`);
+  }
+
   const childrenOf = new Map<string, QuoteItemInput[]>();
   for (const i of items) {
     if (i.parentId !== null) {
@@ -40,9 +52,16 @@ export function computeItems(items: QuoteItemInput[], costs: Map<string, Effecti
 
   return items.map((i) => {
     const own = ownAmountOf(i);
+    // 子項的 includeInMgmtFee 不採用，由母項決定計入 S1 或 S2。
     const children = i.parentId === null ? (childrenOf.get(i.id) ?? []) : [];
-    const clientTotal = children.length > 0 ? own.plus(sum(children.map(ownAmountOf))) : own;
-    const links = [...i.costLinks, ...children.flatMap((c) => c.costLinks)];
+    // 選配、業主自備、業主直付、管銷服務的子項，金額不併入母項。
+    const amountChildren = children.filter(
+      (c) => !c.isOptional && !c.isOwnerSupplied && !c.isPaidDirectlyByOwner && !c.isComplimentary,
+    );
+    // 成本：管銷服務子項的成本仍併入，其餘排除同上。
+    const costChildren = children.filter((c) => !c.isOptional && !c.isOwnerSupplied && !c.isPaidDirectlyByOwner);
+    const clientTotal = own.plus(sum(amountChildren.map(ownAmountOf)));
+    const links = [...i.costLinks, ...costChildren.flatMap((c) => c.costLinks)];
     const { cost, source, date } = resolveCost(links, costs);
 
     const margin = cost === null ? null : clientTotal.minus(cost);

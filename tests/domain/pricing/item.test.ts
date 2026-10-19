@@ -88,4 +88,41 @@ describe("computeItems", () => {
     );
     expect(rs.map((r) => r.countsInTotal)).toEqual([true, false, false, false]);
   });
+  test("子項旗標：業主直付與選配子項不併入母項金額與成本", () => {
+    const costs = new Map([
+      ["c1", { amount: D("10"), source: "quote" as const, date: "2025-01-01" }],
+      ["c2", { amount: D("99"), source: "quote" as const, date: "2025-01-01" }],
+    ]);
+    const link = (id: string) => [{ costItemId: id, allocationRatio: D(1) }];
+    const rs = computeItems(
+      [
+        item({ id: "p", quantity: D(1), clientUnitPrice: D("100000"), costLinks: link("c1") }),
+        item({ id: "k1", parentId: "p", quantity: D(1), clientUnitPrice: D("69500"), isPaidDirectlyByOwner: true, costLinks: link("c2") }),
+        item({ id: "k2", parentId: "p", quantity: D(1), clientUnitPrice: D("500"), isOptional: true, costLinks: link("c2") }),
+      ],
+      costs,
+    );
+    const p = rs.find((r) => r.id === "p")!;
+    expect(p.clientTotal.toString()).toBe("100000");
+    expect(p.cost!.toString()).toBe("10");
+  });
+  test("管銷服務子項：成本併入母項，金額不併入", () => {
+    const rs = computeItems(
+      [
+        item({ id: "p", quantity: D(1), clientUnitPrice: D("1000") }),
+        item({ id: "k", parentId: "p", quantity: D(1), clientUnitPrice: D("300"), isComplimentary: true, costLinks: [{ costItemId: "c", allocationRatio: D(1) }] }),
+      ],
+      new Map([["c", { amount: D("80"), source: "quote" as const, date: "2025-01-01" }]]),
+    );
+    const p = rs.find((r) => r.id === "p")!;
+    expect(p.clientTotal.toString()).toBe("1000");
+    expect(p.cost!.toString()).toBe("80");
+  });
+  test("結構錯誤會丟出含 id 的錯誤", () => {
+    expect(() => computeItems([item({ id: "x", parentId: "nope" })], new Map())).toThrow(/x/);
+    expect(() =>
+      computeItems([item({ id: "a" }), item({ id: "b", parentId: "a" }), item({ id: "c", parentId: "b" })], new Map()),
+    ).toThrow(/c/);
+    expect(() => computeItems([item({ id: "dup" }), item({ id: "dup" })], new Map())).toThrow(/dup/);
+  });
 });
