@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 /** 檢查 base64 字串解碼後的 byte 數 */
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+
 function base64Bytes(value: string): number {
   return Buffer.from(value, "base64").length;
 }
@@ -14,11 +16,13 @@ const serverEnvSchema = z.object({
   FIELD_ENCRYPTION_KEY: z
     .string()
     .min(1, "必填")
+    .regex(BASE64_PATTERN, "不是有效的 base64 字串")
     .refine((v) => base64Bytes(v) === 32, "base64 解碼後必須為 32 bytes"),
   // 盲索引（HMAC）金鑰：base64，解碼後至少 32 bytes
   BLIND_INDEX_KEY: z
     .string()
     .min(1, "必填")
+    .regex(BASE64_PATTERN, "不是有效的 base64 字串")
     .refine((v) => base64Bytes(v) >= 32, "base64 解碼後至少需要 32 bytes"),
   // 閒置自動登出分鐘數，預設 120（2 小時）
   SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(120),

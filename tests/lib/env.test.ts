@@ -45,4 +45,31 @@ describe("parseServerEnv", () => {
         .SESSION_IDLE_MINUTES,
     ).toBe(30);
   });
+
+  test("非 base64 字串被拒絕", () => {
+    expect(() =>
+      parseServerEnv({ ...valid, FIELD_ENCRYPTION_KEY: "not base64!!" }),
+    ).toThrow(/base64/);
+    expect(() =>
+      parseServerEnv({ ...valid, BLIND_INDEX_KEY: "***" }),
+    ).toThrow(/BLIND_INDEX_KEY/);
+  });
+
+  test("BLIND_INDEX_KEY 剛好 32 bytes 可接受", () => {
+    expect(() =>
+      parseServerEnv({
+        ...valid,
+        BLIND_INDEX_KEY: Buffer.alloc(32, 3).toString("base64"),
+      }),
+    ).not.toThrow();
+  });
+
+  test("FIELD_ENCRYPTION_KEY 為 33 bytes 時拒絕", () => {
+    expect(() =>
+      parseServerEnv({
+        ...valid,
+        FIELD_ENCRYPTION_KEY: Buffer.alloc(33, 1).toString("base64"),
+      }),
+    ).toThrow(/32/);
+  });
 });
