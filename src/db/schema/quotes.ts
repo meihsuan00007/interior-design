@@ -127,8 +127,7 @@ export const quoteItems = pgTable(
     quantity: decimal14x2("quantity"),
     clientUnitPrice: decimal14x2("client_unit_price"),
     clientPriceMode: text("client_price_mode", { enum: CLIENT_PRICE_MODES }).notNull().default("manual"),
-    /** 加成率（倍數，例 1.350000）；可能大於 10，故不用 numeric(7,6) */
-    markupRateUsed: numeric("markup_rate_used", { precision: 10, scale: 6 }),
+    // 加成率放在 quote_item_pricing_meta（單價 ÷ 加成率 = 成本，須受 can_view_cost 保護）
     // 旗標
     isOptional: boolean("is_optional").notNull().default(false),
     isComplimentary: boolean("is_complimentary").notNull().default(false),
@@ -165,7 +164,22 @@ export const quoteItems = pgTable(
   ],
 );
 
-export const QUOTE_FEE_KINDS = ["mgmt", "design", "warranty", "discount", "other"] as const;
+/**
+ * 報價項目的計價中繼資料（可反推成本）。RLS 以 app.can_view_cost(project_id) 保護，
+ * 與 quote_items 一對一。
+ */
+export const quoteItemPricingMeta = pgTable("quote_item_pricing_meta", {
+  quoteItemId: uuid("quote_item_id")
+    .primaryKey()
+    .references(() => quoteItems.id, { onDelete: "cascade" }),
+  organizationId: orgId(),
+  projectId: projectId(),
+  /** 加成率（倍數，例 1.350000）；可能大於 10，故不用 numeric(7,6) */
+  markupRateUsed: numeric("markup_rate_used", { precision: 10, scale: 6 }),
+  ...timestamps(),
+});
+
+export const QUOTE_FEE_KINDS =["mgmt", "design", "warranty", "discount", "other"] as const;
 export const QUOTE_FEE_MODES = ["percent", "fixed"] as const;
 
 /** 浮動費用；percent 用 rate（numeric(7,6)），fixed 用 amount（numeric(14,0)） */

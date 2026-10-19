@@ -15,6 +15,20 @@
       "when": 1792434834906,
       "tag": "20261019183354_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792435379952,
+      "tag": "20261019184259_quote_item_pricing_meta",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792435387498,
+      "tag": "20261019184307_rls_hardening",
+      "breakpoints": true
     }
   ]
 }
