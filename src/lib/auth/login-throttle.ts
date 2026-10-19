@@ -28,3 +28,11 @@ export function isThrottled(
   }
   return emailFailures >= MAX_EMAIL_FAILURES || ipAttempts >= MAX_IP_ATTEMPTS;
 }
+
+/**
+ * 被節流拒絕的請求不得記為失敗：否則任何人都能持續送請求，無限延長受害者的鎖定時間。
+ * 只有實際送去驗證密碼的嘗試才需要記錄。
+ */
+export function shouldRecordAttempt(throttled: boolean): boolean {
+  return !throttled;
+}

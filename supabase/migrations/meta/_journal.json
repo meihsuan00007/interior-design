@@ -43,6 +43,13 @@
       "when": 1792436333578,
       "tag": "20261019185853_mfa_enforcement",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792437070338,
+      "tag": "20261019191110_quote_fees_no_mgmt",
+      "breakpoints": true
     }
   ]
 }

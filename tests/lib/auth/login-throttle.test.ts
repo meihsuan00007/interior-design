@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { isThrottled, type AttemptRecord } from "@/lib/auth/login-throttle";
+import { isThrottled, shouldRecordAttempt, type AttemptRecord } from "@/lib/auth/login-throttle";
 
 const now = 1_800_000_000_000;
 const MIN = 60_000;
@@ -36,4 +36,9 @@ test("同一 IP 19 次未限制、20 次限制（含成功與不同 email）", (
 
 test("IP 超過 15 分鐘的嘗試不計", () => {
   expect(isThrottled(many(20, () => fail(20, { emailBidx: "z", ipHash: "ip1" })), key, now)).toBe(false);
+});
+
+test("被節流拒絕的請求不記錄，其餘照常記錄", () => {
+  expect(shouldRecordAttempt(true)).toBe(false);
+  expect(shouldRecordAttempt(false)).toBe(true);
 });

@@ -14,8 +14,8 @@ export function isSessionIdle(
 
 export const LAST_ACTIVITY_COOKIE = "last_activity";
 
-const DEFAULT_IDLE_MINUTES = 120;
-const MAX_IDLE_MINUTES = 7 * 24 * 60;
+export const DEFAULT_IDLE_MINUTES = 120;
+export const MAX_IDLE_MINUTES = 7 * 24 * 60;
 
 /** 解析 SESSION_IDLE_MINUTES：正整數，上限 7 天；無法解析時用預設 120 分鐘。 */
 export function parseIdleMinutes(raw: string | undefined): number {

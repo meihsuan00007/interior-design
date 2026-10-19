@@ -8,7 +8,7 @@ import { writeAudit, type AuditEvent } from "@/lib/audit";
 import { writeLoginFailedAudit, writeMfaFailedAudit } from "@/lib/audit-failed-login";
 import { signActivity } from "@/lib/auth/activity-cookie";
 import { LAST_ACTIVITY_COOKIE } from "@/lib/auth/idle";
-import { THROTTLE_MESSAGE } from "@/lib/auth/login-throttle";
+import { shouldRecordAttempt, THROTTLE_MESSAGE } from "@/lib/auth/login-throttle";
 import { checkThrottle, clientIpHash, recordAttempt } from "@/lib/auth/login-throttle-db";
 import { blindIndex } from "@/lib/crypto/blind-index";
 import { getServerEnv } from "@/lib/env";
@@ -53,8 +53,8 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
 
   const emailBidx = blindIndex("email", parsed.data.email);
   const ipHash = await clientIpHash();
-  if (await checkThrottle(emailBidx, ipHash)) {
-    await recordAttempt(emailBidx, ipHash, false);
+  if (!shouldRecordAttempt(await checkThrottle(emailBidx, ipHash))) {
+    // 被節流的請求不記錄，避免他人藉由重複請求無限延長鎖定
     return { error: THROTTLE_MESSAGE };
   }
 

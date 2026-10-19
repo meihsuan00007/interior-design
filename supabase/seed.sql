@@ -99,9 +99,6 @@ insert into public.quote_items (id, organization_id, project_id, version_id, sec
 insert into public.quote_item_pricing_meta (quote_item_id, organization_id, project_id, markup_rate_used) values
   ('53000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', 1.400000);
 
-insert into public.quote_fees (organization_id, project_id, version_id, kind, mode, label, rate) values
-  ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '51000000-0000-4000-8000-000000000001', 'mgmt', 'percent', '工程管理費', 0.100000);
-
 -- ── 成本 ───────────────────────────────────────────────────
 insert into public.vendor_documents (id, organization_id, project_id, vendor_id, trade_id, kind, document_date) values
   ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '43000000-0000-4000-8000-000000000001', '41000000-0000-4000-8000-000000000001', 'quote', '2026-09-01'),

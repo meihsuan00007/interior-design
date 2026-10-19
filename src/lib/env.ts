@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_IDLE_MINUTES, MAX_IDLE_MINUTES } from "@/lib/auth/idle";
 
 /** 檢查 base64 字串解碼後的 byte 數 */
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -25,7 +26,12 @@ const serverEnvSchema = z.object({
     .regex(BASE64_PATTERN, "不是有效的 base64 字串")
     .refine((v) => base64Bytes(v) >= 32, "base64 解碼後至少需要 32 bytes"),
   // 閒置自動登出分鐘數，預設 120（2 小時）
-  SESSION_IDLE_MINUTES: z.coerce.number().int().positive().default(120),
+  SESSION_IDLE_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_IDLE_MINUTES, `不可超過 ${MAX_IDLE_MINUTES} 分鐘（7 天）`)
+    .default(DEFAULT_IDLE_MINUTES),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

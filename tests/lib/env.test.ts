@@ -46,6 +46,13 @@ describe("parseServerEnv", () => {
     ).toBe(30);
   });
 
+  test("SESSION_IDLE_MINUTES 範圍與 parseIdleMinutes 一致：1～10080", () => {
+    expect(parseServerEnv({ ...valid, SESSION_IDLE_MINUTES: "1" }).SESSION_IDLE_MINUTES).toBe(1);
+    expect(parseServerEnv({ ...valid, SESSION_IDLE_MINUTES: "10080" }).SESSION_IDLE_MINUTES).toBe(10080);
+    expect(() => parseServerEnv({ ...valid, SESSION_IDLE_MINUTES: "10081" })).toThrow(/SESSION_IDLE_MINUTES/);
+    expect(() => parseServerEnv({ ...valid, SESSION_IDLE_MINUTES: "0" })).toThrow(/SESSION_IDLE_MINUTES/);
+  });
+
   test("非 base64 字串被拒絕", () => {
     expect(() =>
       parseServerEnv({ ...valid, FIELD_ENCRYPTION_KEY: "not base64!!" }),

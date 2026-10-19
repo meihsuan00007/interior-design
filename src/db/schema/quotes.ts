@@ -179,7 +179,8 @@ export const quoteItemPricingMeta = pgTable("quote_item_pricing_meta", {
   ...timestamps(),
 });
 
-export const QUOTE_FEE_KINDS =["mgmt", "design", "warranty", "discount", "other"] as const;
+// 工程管理費由系統依 quote_versions.mgmt_fee_rate_snapshot 計算，不可手填，故不在此列。
+export const QUOTE_FEE_KINDS = ["design", "warranty", "discount", "other"] as const;
 export const QUOTE_FEE_MODES = ["percent", "fixed"] as const;
 
 /** 浮動費用；percent 用 rate（numeric(7,6)），fixed 用 amount（numeric(14,0)） */
@@ -204,7 +205,7 @@ export const quoteFees = pgTable(
     index("quote_fees_version_id_idx").on(t.versionId),
     check(
       "quote_fees_kind_check",
-      sql`${t.kind} in ('mgmt', 'design', 'warranty', 'discount', 'other')`,
+      sql`${t.kind} in ('design', 'warranty', 'discount', 'other')`,
     ),
     check("quote_fees_mode_check", sql`${t.mode} in ('percent', 'fixed')`),
     check(
