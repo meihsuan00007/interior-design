@@ -1,20 +1,4 @@
-"use client";
-
-import { motion, useReducedMotion } from "framer-motion";
-import { FADE_DURATION } from "./stagger";
-
-/** 內容淡入（150ms）。偏好減少動態時直接顯示，不做任何透明度或位移動畫。 */
+/** 內容淡入（150ms，CSS 動畫）。減少動態時 CSS 不套用動畫，結構與有動畫時完全相同。 */
 export function FadeIn({ children, className }: { children: React.ReactNode; className?: string }) {
-  const reduce = useReducedMotion();
-  if (reduce) return <div className={className}>{children}</div>;
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: FADE_DURATION, ease: "easeOut" }}
-    >
-      {children}
-    </motion.div>
-  );
+  return <div className={["fade-in", className].filter(Boolean).join(" ")}>{children}</div>;
 }

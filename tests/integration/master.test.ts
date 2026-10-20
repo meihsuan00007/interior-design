@@ -143,8 +143,11 @@ describe("工種", () => {
   });
 
   test("上下移動會交換排序", async () => {
-    const a = await createTrade(jiaOrg, trade(`測試工種-${sfx}-m1`, { sort: 9001 }), designer);
-    const b = await createTrade(jiaOrg, trade(`測試工種-${sfx}-m2`, { sort: 9002 }), designer);
+    // 根因：先前執行殘留的列也用 9001／9002，a、b 之間可能夾著別人的列，上移一格追不上 a。
+    // 改成排在目前最大 sort 之後，a、b 必定是最後兩列且相鄰。
+    const maxSort = Math.max(0, ...(await listTrades(jiaOrg, designer)).map((t) => t.sort));
+    const a = await createTrade(jiaOrg, trade(`測試工種-${sfx}-m1`, { sort: maxSort + 10 }), designer);
+    const b = await createTrade(jiaOrg, trade(`測試工種-${sfx}-m2`, { sort: maxSort + 20 }), designer);
     await moveTrade(jiaOrg, b.id, "up", designer);
     const ids = (await listTrades(jiaOrg, designer)).map((t) => t.id);
     expect(ids.indexOf(b.id)).toBeLessThan(ids.indexOf(a.id));

@@ -142,7 +142,7 @@ describe("updateProject", () => {
     await updateProject(
       designer,
       id,
-      input({ name: `更新後-${sfx}`, addressFull: "新地址 5 號", ping: "30", status: "quoting" }),
+      input({ name: `更新後-${sfx}`, addressFull: "新地址 5 號", addressTouched: true, ping: "30", status: "quoting" }),
     );
     const p = await getProjectForEdit(designer, id);
     expect(p).toMatchObject({ name: `更新後-${sfx}`, addressFull: "新地址 5 號", ping: "30.00", status: "quoting" });
@@ -194,6 +194,45 @@ describe("updateProject", () => {
     expect(JSON.stringify(withPii)).not.toContain("0900111222");
     const without = await getProjectForEdit({ ...designer, role: "supervisor" }, id);
     expect(without).toMatchObject({ clientName: "" });
+  });
+
+  test("getProjectForEdit 輸出沒有電話、Email、身分證欄位", async () => {
+    const id = await createProject(
+      designer,
+      input({
+        name: `欄位-${sfx}`,
+        clientName: "欄位名",
+        clientPhone: "0900123123",
+        clientEmail: "leak@example.com",
+        clientNationalId: "B123456789",
+      }),
+    );
+    const p = await getProjectForEdit(designer, id);
+    expect(Object.keys(p!).sort()).toEqual(
+      [
+        "addressFull", "addressUnreadable", "clientName", "condition", "district", "floor", "hasClient",
+        "hasElevator", "hoaRules", "id", "name", "ping", "status",
+      ].sort(),
+    );
+    const json = JSON.stringify(p);
+    for (const secret of ["0900123123", "leak@example.com", "B123456789"]) expect(json).not.toContain(secret);
+  });
+
+  test("地址無法解密：標示無法讀取；存其他欄位時地址密文不變；明確修改才覆寫", async () => {
+    const id = await createProject(designer, input({ name: `壞地址-${sfx}`, addressFull: "原地址" }));
+    await designerClient.from("projects").update({ address_full_enc: "v1:bad:bad:bad" }).eq("id", id);
+
+    const p = await getProjectForEdit(designer, id);
+    expect(p).toMatchObject({ addressFull: "", addressUnreadable: true });
+
+    // 表單送出空地址但沒有動過地址欄位（addressTouched 未設）→ 不更新地址
+    await updateProject(designer, id, input({ name: `壞地址改名-${sfx}`, addressFull: "" }));
+    const { data } = await designerClient.from("projects").select("name, address_full_enc").eq("id", id).single();
+    expect(data).toEqual({ name: `壞地址改名-${sfx}`, address_full_enc: "v1:bad:bad:bad" });
+
+    await updateProject(designer, id, input({ name: `壞地址改名-${sfx}`, addressFull: "新地址", addressTouched: true }));
+    const after = await getProjectForEdit(designer, id);
+    expect(after).toMatchObject({ addressFull: "新地址", addressUnreadable: false });
   });
 
   test("找不到或無權限的案場回傳 null／拒絕", async () => {

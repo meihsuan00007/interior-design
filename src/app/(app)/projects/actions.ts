@@ -14,6 +14,7 @@ function parseForm(fd: FormData) {
     name: formString(fd, "name"),
     district: formString(fd, "district"),
     addressFull: formString(fd, "addressFull"),
+    addressTouched: formString(fd, "addressTouched") === "1",
     ping: formString(fd, "ping"),
     condition: formString(fd, "condition"),
     floor: formString(fd, "floor"),

@@ -61,6 +61,12 @@ describe("projectSchema", () => {
     expect(parse({ addressFull: "a".repeat(201) }).success).toBe(false);
   });
 
+  test("樓層為純文字：B1、3~5 可用，超過 10 字失敗", () => {
+    expect(parse({ floor: "B1" }).success).toBe(true);
+    expect(parse({ floor: "3~5" }).success).toBe(true);
+    expect(parse({ floor: "12345678901" }).success).toBe(false);
+  });
+
   test("身分證格式", () => {
     expect(parse({ clientName: "王", clientNationalId: "A123456789" }).success).toBe(true);
     expect(parse({ clientName: "王", clientNationalId: "a123456789" }).success).toBe(true);

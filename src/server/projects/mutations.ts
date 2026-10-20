@@ -37,6 +37,12 @@ function projectColumns(i: ProjectInput) {
   };
 }
 
+/** 編輯：只有使用者動過地址欄位才更新 address_full_enc（避免無法解密的舊值被空白蓋掉）。 */
+function editColumns(i: ProjectInput) {
+  const { address_full_enc, ...rest } = projectColumns(i);
+  return i.addressTouched ? { ...rest, address_full_enc } : rest;
+}
+
 /** rpc 錯誤：22023（輸入不合法）使用函式自己的友善訊息，其餘走共同對應。 */
 function throwRpcError(error: { code?: string; message?: string }): never {
   if (error.code === "22023" && error.message) throw new UserError(error.message);
@@ -91,7 +97,12 @@ export async function createProject(ctx: ProjectWriteCtx, input: ProjectInput): 
       await createClientFor(supabase, id, input);
     } catch (e) {
       // 業主建立失敗：盡力移除剛建好的案場（經 RLS），避免使用者重送時重複建立
-      await supabase.from("projects").delete().eq("id", id).eq("organization_id", ctx.orgId);
+      const { error: cleanupError } = await supabase
+        .from("projects")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", ctx.orgId);
+      if (cleanupError) console.error("業主建立失敗後移除案場也失敗");
       throw e;
     }
   }
@@ -102,7 +113,7 @@ export async function updateProject(ctx: ProjectWriteCtx, id: string, input: Pro
   const supabase = ctx.supabase ?? (await createClient());
   const { data, error } = await supabase
     .from("projects")
-    .update(projectColumns(input))
+    .update(editColumns(input))
     .eq("id", id)
     .eq("organization_id", ctx.orgId)
     .select("id, client_id");

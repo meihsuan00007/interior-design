@@ -42,6 +42,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
         }}
         showClient={canHandleClient(org.role)}
         hasClient={project.hasClient}
+        addressUnreadable={project.addressUnreadable}
       />
     </main>
   );

@@ -128,3 +128,17 @@
     @apply font-sans;
   }
 }
+/* 淡入：只在使用者沒有要求減少動態時才有動畫；SSR 輸出不含 opacity:0，無 JS 也看得到內容 */
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in {
+    animation: fade-in 150ms ease-out both;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

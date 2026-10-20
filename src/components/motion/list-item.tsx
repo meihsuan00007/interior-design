@@ -1,9 +1,6 @@
-"use client";
+import { staggerDelay } from "./stagger";
 
-import { motion, useReducedMotion } from "framer-motion";
-import { FADE_DURATION, staggerDelay } from "./stagger";
-
-/** 列表項目依序出現（每筆間隔 30ms，只對前 20 筆）。偏好減少動態或超過 20 筆時直接顯示。 */
+/** 列表項目依序出現（每筆間隔 30ms，只對前 20 筆）。第 21 筆起不帶動畫。 */
 export function ListItem({
   as = "li",
   index,
@@ -15,17 +12,12 @@ export function ListItem({
   className?: string;
   children: React.ReactNode;
 }) {
-  const reduce = useReducedMotion();
   const delay = staggerDelay(index);
-  const Tag = as === "tr" ? motion.tr : motion.li;
-  const Plain = as;
-  if (reduce || delay === null) return <Plain className={className}>{children}</Plain>;
+  const Tag = as;
   return (
     <Tag
-      className={className}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: FADE_DURATION, delay, ease: "easeOut" }}
+      className={[delay === null ? "" : "fade-in", className].filter(Boolean).join(" ") || undefined}
+      style={delay === null ? undefined : { animationDelay: `${delay}s` }}
     >
       {children}
     </Tag>

@@ -44,6 +44,8 @@ export const projectSchema = z
     name: z.string().trim().min(1, "請輸入案場名稱").max(60, "案場名稱最多 60 字"),
     district: text("行政區", 20),
     addressFull: text("完整地址", 200),
+    /** 編輯時使用者是否動過地址欄位；沒動過就不更新 address_full_enc */
+    addressTouched: z.boolean().optional(),
     ping,
     condition: z.enum(["", ...PROJECT_CONDITIONS], { message: "屋況不正確" }),
     floor: text("樓層", 10),

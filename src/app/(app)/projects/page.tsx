@@ -75,14 +75,14 @@ export default async function ProjectsPage({
         )}
       </div>
 
-      <ProjectSearch initial={q} />
+      <ProjectSearch />
 
       <nav aria-label="狀態篩選" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0">
         {CHIPS.map((c) => (
           <Link
             key={c.value}
             href={chipHref(c.value, q)}
-            aria-current={c.value === status ? "true" : undefined}
+            aria-current={c.value === status ? "page" : undefined}
             className={cn(
               "shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors",
               c.value === status

@@ -56,6 +56,7 @@ export function ProjectForm({
   projectId,
   showClient,
   hasClient,
+  addressUnreadable = false,
 }: {
   action: (prev: ActionResult | null, fd: FormData) => Promise<ActionResult>;
   statusOptions: { value: string; label: string }[];
@@ -64,9 +65,12 @@ export function ProjectForm({
   projectId?: string;
   showClient: boolean;
   hasClient: boolean;
+  /** 既有地址無法解密：顯示唯讀提示，沒動過地址欄位就不覆寫 */
+  addressUnreadable?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const [v, setV] = useState(initial);
+  const [addressTouched, setAddressTouched] = useState(false);
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [nationalId, setNationalId] = useState("");
@@ -89,7 +93,24 @@ export function ProjectForm({
           <Input id="p-district" name="district" value={v.district} onChange={(e) => set("district")(e.target.value)} maxLength={20} className="h-10" />
         </Field>
         <Field label="完整地址" htmlFor="p-address" error={errors.addressFull} hint="加密儲存，列表不會顯示。">
-          <Input id="p-address" name="addressFull" autoComplete="off" value={v.addressFull} onChange={(e) => set("addressFull")(e.target.value)} maxLength={200} className="h-10" />
+          {addressUnreadable && (
+            <p role="status" className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+              無法讀取地址（既有資料無法解密）。不修改此欄位時，原資料保持不變。
+            </p>
+          )}
+          <input type="hidden" name="addressTouched" value={addressTouched ? "1" : ""} />
+          <Input
+            id="p-address"
+            name="addressFull"
+            autoComplete="off"
+            value={v.addressFull}
+            onChange={(e) => {
+              setAddressTouched(true);
+              set("addressFull")(e.target.value);
+            }}
+            maxLength={200}
+            className="h-10"
+          />
         </Field>
       </Section>
 
@@ -101,7 +122,7 @@ export function ProjectForm({
           <SelectField id="p-condition" name="condition" value={v.condition} onChange={set("condition")} options={CONDITION_OPTIONS} noneLabel="未指定" />
         </Field>
         <Field label="樓層" htmlFor="p-floor" error={errors.floor}>
-          <Input id="p-floor" name="floor" inputMode="numeric" value={v.floor} onChange={(e) => set("floor")(e.target.value)} maxLength={10} className="h-10" />
+          <Input id="p-floor" name="floor" value={v.floor} onChange={(e) => set("floor")(e.target.value)} maxLength={10} className="h-10" />
         </Field>
         <Field label="電梯" htmlFor="p-elevator" error={errors.hasElevator}>
           <SelectField id="p-elevator" name="hasElevator" value={v.hasElevator} onChange={set("hasElevator")} options={ELEVATOR_OPTIONS} noneLabel="不確定" />

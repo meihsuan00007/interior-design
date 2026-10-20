@@ -78,6 +78,8 @@ export interface ProjectEditData {
   district: string;
   /** 伺服器端解密後的地址；無法解密時為空字串 */
   addressFull: string;
+  /** 有地址密文但無法解密 */
+  addressUnreadable: boolean;
   ping: string;
   condition: string;
   floor: string;
@@ -89,12 +91,13 @@ export interface ProjectEditData {
   clientName: string;
 }
 
-function tryDecrypt(v: string | null): string {
-  if (!v) return "";
+function tryDecrypt(v: string | null): { value: string; failed: boolean } {
+  if (!v) return { value: "", failed: false };
   try {
-    return decryptField(v);
+    return { value: decryptField(v), failed: false };
   } catch {
-    return "";
+    console.error("案場欄位解密失敗"); // 只記固定訊息，不帶密文或例外內容
+    return { value: "", failed: true };
   }
 }
 
@@ -124,18 +127,21 @@ export async function getProjectForEdit(ctx: ProjectWriteCtx, id: string): Promi
     client_id: string | null;
   };
 
+  // 依 Ruling R19：稽核只涵蓋聯絡欄位（電話／Email／身分證）；業主姓名與地址的解密不寫稽核。
   let clientName = "";
   if (p.client_id && canHandleClient(ctx.role)) {
     const { data: c, error: ce } = await supabase.from("clients").select("name_enc").eq("id", p.client_id).maybeSingle();
     if (ce) throwDbError(ce);
-    clientName = tryDecrypt((c as { name_enc: string } | null)?.name_enc ?? null);
+    clientName = tryDecrypt((c as { name_enc: string } | null)?.name_enc ?? null).value;
   }
 
+  const address = tryDecrypt(p.address_full_enc);
   return {
     id: p.id,
     name: p.name,
     district: p.district ?? "",
-    addressFull: tryDecrypt(p.address_full_enc),
+    addressFull: address.value,
+    addressUnreadable: address.failed,
     ping: p.ping ?? "",
     condition: p.condition ?? "",
     floor: p.floor ?? "",

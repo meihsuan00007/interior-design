@@ -15,7 +15,7 @@
 ## 開發環境
 
 - 本機需要 Docker Desktop（Supabase 本機環境）。啟動：`npx supabase start`；重建資料庫：`npx supabase db reset`。
-- 測試：`npm test`（Vitest）、`npx supabase test db`（pgTAP，含 RLS／MFA／守門測試）。
+- 測試：`npm test`（Vitest）、`npm run test:db`（先 `supabase db reset` 再跑 pgTAP，含 RLS／MFA／守門測試；整合測試會在本機資料庫留下資料，pgTAP 的計數斷言需要乾淨的種子資料，所以不要單獨跑 `npx supabase test db`）。
 - 使用者請求一律走 Supabase client（帶 JWT，受 RLS 約束）；Drizzle `db` 以 postgres 角色連線、會繞過 RLS，只用於遷移、種子與受控的伺服器端特權寫入。
 - 新增資料表時，`supabase/tests/guards.test.sql` 會檢查 RLS、`mfa_required` policy、anon 無權限、organization_id 不可變更 trigger；必須一併補上。
 
