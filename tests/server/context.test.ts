@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
-import { ForbiddenError, getCurrentOrg, requireOrgRole, type AppContext } from "@/server/context";
+import { describe, expect, test, vi } from "vitest";
+import { ForbiddenError, getCurrentOrg, loadAppContext, requireOrgRole, type AppContext } from "@/server/context";
 
 const m = (id: string, role: "admin" | "designer" | "supervisor" = "designer") => ({
   organizationId: id,
@@ -30,5 +30,17 @@ describe("requireOrgRole", () => {
     expect(() => requireOrgRole(ctx, "a", ["designer"])).not.toThrow();
     expect(() => requireOrgRole(ctx, "a", ["admin"])).toThrow(ForbiddenError);
     expect(() => requireOrgRole(ctx, "other", ["designer"])).toThrow(ForbiddenError);
+  });
+});
+
+describe("loadAppContext", () => {
+  test("沒有登入使用者時回傳 null，且不查詢 memberships", async () => {
+    const from = vi.fn();
+    const supabase = {
+      auth: { getUser: async () => ({ data: { user: null }, error: null }) },
+      from,
+    };
+    expect(await loadAppContext(supabase as never)).toBeNull();
+    expect(from).not.toHaveBeenCalled();
   });
 });

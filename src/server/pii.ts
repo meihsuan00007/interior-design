@@ -59,7 +59,10 @@ export interface RevealDeps {
   writeAudit?: typeof defaultWriteAudit;
 }
 
-/** 先寫稽核（失敗即中止、不回傳資料），再以 RLS client 讀取並解密聯絡資料。 */
+/**
+ * 先寫稽核（失敗即中止、不回傳資料），再以 RLS client 讀取並解密聯絡資料。
+ * organizationId 必須來自 getCurrentOrg(ctx).organizationId，不可直接使用請求輸入。
+ */
 export async function revealClientContact(
   clientId: string,
   organizationId: string,
@@ -81,7 +84,7 @@ export async function revealClientContact(
     .eq("id", clientId)
     .eq("organization_id", organizationId)
     .maybeSingle();
-  if (error) throw new Error(`讀取業主資料失敗：${error.message}`);
+  if (error) throw new Error("讀取業主資料失敗"); // 不帶入原始錯誤訊息，避免洩漏輸入值或個資
   if (!data) throw new Error("找不到業主或沒有權限檢視");
 
   const dec = (v: string | null) => (v ? decryptField(v) : null);
@@ -92,9 +95,9 @@ export async function revealClientContact(
   };
 }
 
-/** "0912345678" → "0912-***-678"；位數不足 6 回傳 "***"。 */
+/** "0912345678" → "0912-***-678"；去除非數字後不足 8 碼回傳 "***"。含國碼者（如 "+886912345678"）同樣保留前 4、後 3 碼："8869-***-678"。 */
 export function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
-  if (digits.length < 6) return "***";
+  if (digits.length < 8) return "***";
   return `${digits.slice(0, 4)}-***-${digits.slice(-3)}`;
 }
