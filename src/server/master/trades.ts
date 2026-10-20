@@ -1,9 +1,8 @@
 import "server-only";
 import type { TradeInput } from "@/lib/validation/master";
 import {
-  MasterError,
   assertAffected,
-  audit,
+  auditThenRpc,
   getClient,
   moveSortable,
   throwDbError,
@@ -84,39 +83,6 @@ export async function moveTrade(orgId: string, id: string, direction: "up" | "do
 }
 
 export async function deleteTrade(orgId: string, id: string, deps?: MasterDeps): Promise<void> {
-  const supabase = await getClient(deps);
-
-  // 品項外鍵為 ON DELETE SET NULL，不先檢查會默默讓品項失去工種
-  const { count, error: countError } = await supabase
-    .from("catalog_items")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", orgId)
-    .eq("trade_id", id);
-  if (countError) throwDbError(countError);
-  if ((count ?? 0) > 0) throw new MasterError("此工種仍有品項使用，無法刪除");
-
-  const { data, error } = await supabase
-    .from("trades")
-    .delete()
-    .eq("id", id)
-    .eq("organization_id", orgId)
-    .select("id");
-  if (error) throwDbError(error, { inUse: "此工種仍被使用，無法刪除" });
-  assertAffected(data);
-
-  // vendors.trade_ids 是 uuid 陣列（沒有外鍵），一併移除殘留的參照
-  const { data: vendors } = await supabase
-    .from("vendors")
-    .select("id, trade_ids")
-    .eq("organization_id", orgId)
-    .contains("trade_ids", [id]);
-  for (const v of (vendors ?? []) as { id: string; trade_ids: string[] }[]) {
-    await supabase
-      .from("vendors")
-      .update({ trade_ids: v.trade_ids.filter((t) => t !== id) })
-      .eq("id", v.id)
-      .eq("organization_id", orgId);
-  }
-
-  await audit(deps, "trade", id, orgId);
+  // 檢查品項、刪除、清理廠商 trade_ids 在資料庫函式內同一交易完成
+  await auditThenRpc(deps, "trade", id, orgId, "delete_trade");
 }

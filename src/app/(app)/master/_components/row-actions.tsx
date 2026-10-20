@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import type { ActionResult } from "@/server/master/action";
 
+const GENERIC_ERROR = "操作失敗，請稍後再試";
+
 interface RowActionsProps {
   /** 顯示在刪除確認視窗的名稱 */
   name: string;
@@ -33,19 +35,27 @@ export function RowActions({ name, onEdit, onDelete, onMove, isFirst, isLast, on
 
   function move(direction: "up" | "down") {
     startTransition(async () => {
-      const r = await onMove!(direction);
-      onError(r.ok ? null : r.message);
+      try {
+        const r = await onMove!(direction);
+        onError(r.ok ? null : r.message);
+      } catch {
+        onError(GENERIC_ERROR);
+      }
     });
   }
 
   function confirmDelete() {
     startTransition(async () => {
-      const r = await onDelete();
-      if (r.ok) {
-        setConfirmOpen(false);
-        onError(null);
-      } else {
-        setDialogError(r.message);
+      try {
+        const r = await onDelete();
+        if (r.ok) {
+          setConfirmOpen(false);
+          onError(null);
+        } else {
+          setDialogError(r.message);
+        }
+      } catch {
+        setDialogError(GENERIC_ERROR);
       }
     });
   }

@@ -1,6 +1,23 @@
 import "server-only";
 import type { CatalogItemInput, PricingMethod } from "@/lib/validation/master";
-import { assertAffected, audit, getClient, throwDbError, type MasterDeps } from "./common";
+import {
+  assertAffected,
+  auditBeforeDelete,
+  getClient,
+  throwDbError,
+  verifyRefs,
+  type MasterDeps,
+} from "./common";
+
+const DUPLICATE = "名稱已存在";
+
+function catalogRefs(i: CatalogItemInput) {
+  return [
+    { field: "tradeId", table: "trades" as const, ids: [i.tradeId] },
+    { field: "unitId", table: "units" as const, ids: [i.unitId] },
+    { field: "defaultVendorId", table: "vendors" as const, ids: [i.defaultVendorId] },
+  ];
+}
 
 export interface CatalogItemRow {
   id: string;
@@ -81,13 +98,14 @@ export async function createCatalogItem(
   input: CatalogItemInput,
   deps?: MasterDeps,
 ): Promise<CatalogItemRow> {
+  await verifyRefs(orgId, catalogRefs(input), deps);
   const supabase = await getClient(deps);
   const { data, error } = await supabase
     .from("catalog_items")
     .insert({ ...toDb(input), organization_id: orgId })
     .select(COLUMNS)
     .single();
-  if (error) throwDbError(error);
+  if (error) throwDbError(error, { duplicate: DUPLICATE });
   return toRow(data as DbItem);
 }
 
@@ -97,6 +115,7 @@ export async function updateCatalogItem(
   input: CatalogItemInput,
   deps?: MasterDeps,
 ): Promise<void> {
+  await verifyRefs(orgId, catalogRefs(input), deps);
   const supabase = await getClient(deps);
   const { data, error } = await supabase
     .from("catalog_items")
@@ -104,11 +123,12 @@ export async function updateCatalogItem(
     .eq("id", id)
     .eq("organization_id", orgId)
     .select("id");
-  if (error) throwDbError(error);
+  if (error) throwDbError(error, { duplicate: DUPLICATE });
   assertAffected(data);
 }
 
 export async function deleteCatalogItem(orgId: string, id: string, deps?: MasterDeps): Promise<void> {
+  await auditBeforeDelete(deps, "catalog_item", id, orgId);
   const supabase = await getClient(deps);
   const { data, error } = await supabase
     .from("catalog_items")
@@ -118,5 +138,4 @@ export async function deleteCatalogItem(orgId: string, id: string, deps?: Master
     .select("id");
   if (error) throwDbError(error, { inUse: "此品項已被報價引用，無法刪除" });
   assertAffected(data);
-  await audit(deps, "catalog_item", id, orgId);
 }

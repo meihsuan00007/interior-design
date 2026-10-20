@@ -240,3 +240,53 @@ describe("廠商", () => {
     await deleteCatalogItem(jiaOrg, item.id, designer);
   });
 });
+
+describe("R14／R15 補強", () => {
+  test("稽核寫入失敗時不刪除（fail closed）", async () => {
+    const t = await createTrade(jiaOrg, trade(`測試工種-${sfx}-fc`), designer);
+    const failing: MasterDeps = {
+      supabase: designer.supabase,
+      writeAudit: async () => {
+        throw new Error("audit down");
+      },
+    };
+    await expect(deleteTrade(jiaOrg, t.id, failing)).rejects.toThrow();
+    expect((await listTrades(jiaOrg, designer)).some((x) => x.id === t.id)).toBe(true);
+  });
+
+  test("supervisor 刪除工種被拒，資料仍在", async () => {
+    const t = await createTrade(jiaOrg, trade(`測試工種-${sfx}-sd`), designer);
+    await expect(deleteTrade(jiaOrg, t.id, supervisor)).rejects.toBeInstanceOf(MasterError);
+    expect((await listTrades(jiaOrg, designer)).some((x) => x.id === t.id)).toBe(true);
+  });
+
+  test("引用其他公司的工種／單位／廠商 id 回「選項無效」", async () => {
+    const yiTrade = await createTrade(yiOrg, trade(`乙工種-${sfx}`), yiAdmin);
+    const yiUnit = await createUnit(yiOrg, { name: `y${sfx}`.slice(0, 10), sort: 0 }, yiAdmin);
+    const yiVendor = await createVendor(yiOrg, vendorInput(`乙廠商-${sfx}`), yiAdmin);
+
+    const e1 = await createCatalogItem(jiaOrg, itemInput(`x-${sfx}`, { tradeId: yiTrade.id }), designer).catch((e) => e);
+    expect(e1).toBeInstanceOf(MasterError);
+    expect(e1.fieldErrors).toEqual({ tradeId: "選項無效" });
+    const e2 = await createCatalogItem(jiaOrg, itemInput(`x-${sfx}`, { unitId: yiUnit.id }), designer).catch((e) => e);
+    expect(e2.fieldErrors).toEqual({ unitId: "選項無效" });
+    const e3 = await createCatalogItem(jiaOrg, itemInput(`x-${sfx}`, { defaultVendorId: yiVendor.id }), designer).catch((e) => e);
+    expect(e3.fieldErrors).toEqual({ defaultVendorId: "選項無效" });
+    const e4 = await createVendor(jiaOrg, vendorInput(`x-${sfx}`, { tradeIds: [yiTrade.id] }), designer).catch((e) => e);
+    expect(e4).toBeInstanceOf(MasterError);
+    expect(e4.fieldErrors).toEqual({ tradeIds: "選項無效" });
+    expect(await listCatalogItems(jiaOrg, { q: `x-${sfx}` }, designer)).toEqual([]);
+  });
+
+  test("廠商電話無法解密時，未動電話欄位的更新不會覆蓋密文", async () => {
+    const v = await createVendor(jiaOrg, vendorInput(`測試廠商-${sfx}-bad`), designer);
+    await designer.supabase!.from("vendors").update({ phone_enc: "v1:bad:bad:bad" }).eq("id", v.id);
+    await updateVendor(jiaOrg, v.id, { ...vendorInput(`測試廠商-${sfx}-bad2`), phoneTouched: false }, designer);
+    const { data } = await designer.supabase!.from("vendors").select("name, phone_enc").eq("id", v.id).single();
+    expect(data).toEqual({ name: `測試廠商-${sfx}-bad2`, phone_enc: "v1:bad:bad:bad" });
+    // 使用者真的改了電話才更新
+    await updateVendor(jiaOrg, v.id, { ...vendorInput(`測試廠商-${sfx}-bad2`, { phone: "0922333444" }), phoneTouched: true }, designer);
+    const row = (await listVendors(jiaOrg, designer)).find((x) => x.id === v.id)!;
+    expect(row.phone).toBe("0922333444");
+  });
+});

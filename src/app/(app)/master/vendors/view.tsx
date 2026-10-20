@@ -25,6 +25,7 @@ function VendorForm({ vendor, trades, onDone }: { vendor: VendorRow | null; trad
   const [tradeIds, setTradeIds] = useState<string[]>(vendor?.tradeIds ?? []);
   const [contactName, setContactName] = useState(vendor?.contactName ?? "");
   const [phone, setPhone] = useState(vendor?.phone ?? "");
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [taxId, setTaxId] = useState(vendor?.taxId ?? "");
   const [note, setNote] = useState(vendor?.note ?? "");
   const errors = fieldErrorsOf(state);
@@ -39,6 +40,7 @@ function VendorForm({ vendor, trades, onDone }: { vendor: VendorRow | null; trad
   return (
     <form action={action} className="space-y-5">
       {vendor && <input type="hidden" name="id" value={vendor.id} />}
+      <input type="hidden" name="phoneTouched" value={phoneTouched ? "1" : "0"} />
       <Field label="廠商名稱" htmlFor="vendor-name" error={errors.name}>
         <Input id="vendor-name" name="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required />
       </Field>
@@ -68,7 +70,10 @@ function VendorForm({ vendor, trades, onDone }: { vendor: VendorRow | null; trad
           <Input id="vendor-contact" name="contactName" value={contactName} onChange={(e) => setContactName(e.target.value)} maxLength={30} />
         </Field>
         <Field label="電話" htmlFor="vendor-phone" error={errors.phone}>
-          <Input id="vendor-phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} />
+          <Input id="vendor-phone" name="phone" type="tel" value={phone} onChange={(e) => {
+              setPhone(e.target.value);
+              setPhoneTouched(true);
+            }} maxLength={20} />
         </Field>
       </div>
       <Field label="統一編號" htmlFor="vendor-tax" error={errors.taxId} hint="8 位數字，可留空。">

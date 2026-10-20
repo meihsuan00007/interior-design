@@ -16,7 +16,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const ctx = await getAppContext();
   const org = ctx.memberships.length > 0 ? await getCurrentOrgFromCookie(ctx) : null;
-  const canManageMaster = org?.role === "admin" || org?.role === "designer";
+
+  if (!org) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-lg font-medium">您尚未加入任何公司，請聯絡管理者</p>
+        <form action={logoutAction}>
+          <Button type="submit" variant="outline">
+            登出
+          </Button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -25,11 +37,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="font-bold">
             室內設計報價管理系統
           </Link>
-          {canManageMaster && (
-            <Link href="/master/trades" className="text-muted-foreground hover:text-foreground">
-              主檔
-            </Link>
-          )}
+          <Link href="/master/trades" className="text-muted-foreground hover:text-foreground">
+            主檔
+          </Link>
           <Link href="/settings/security" className="text-muted-foreground hover:text-foreground">
             安全設定
           </Link>

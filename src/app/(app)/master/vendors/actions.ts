@@ -25,7 +25,10 @@ export async function saveVendorAction(_prev: ActionResult | null, fd: FormData)
   if (!parsed.success) return validationFailure(parsed.error);
   const id = formString(fd, "id");
   return runMasterWrite(PATH, async (orgId) => {
-    if (id) await updateVendor(orgId, idSchema.parse(id), parsed.data);
+    if (id) {
+      const phoneTouched = formString(fd, "phoneTouched") === "1";
+      await updateVendor(orgId, idSchema.parse(id), { ...parsed.data, phoneTouched });
+    }
     else await createVendor(orgId, parsed.data);
   });
 }

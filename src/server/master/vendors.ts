@@ -2,7 +2,19 @@ import "server-only";
 import { decryptField, encryptField } from "@/lib/crypto/field-encryption";
 import type { VendorInput } from "@/lib/validation/master";
 import { maskPhone } from "@/server/pii";
-import { assertAffected, audit, getClient, throwDbError, type MasterDeps } from "./common";
+import {
+  assertAffected,
+  auditBeforeDelete,
+  getClient,
+  throwDbError,
+  verifyRefs,
+  type MasterDeps,
+} from "./common";
+
+const DUPLICATE = "名稱已存在";
+
+/** phoneTouched 為 false 時不更新電話（避免把無法解密的舊密文覆蓋成空值）；未指定視為有改。 */
+export type VendorUpdateInput = VendorInput & { phoneTouched?: boolean };
 
 export interface VendorRow {
   id: string;
@@ -52,13 +64,14 @@ function toRow(r: DbVendor): VendorRow {
   };
 }
 
-function toDb(i: VendorInput) {
+function toDb(i: VendorUpdateInput) {
   const phone = i.phone.trim();
+  const phonePart = i.phoneTouched === false ? {} : { phone_enc: phone === "" ? null : encryptField(phone) };
   return {
     name: i.name,
     trade_ids: i.tradeIds,
     contact_name: i.contactName === "" ? null : i.contactName,
-    phone_enc: phone === "" ? null : encryptField(phone),
+    ...phonePart,
     tax_id: i.taxId === "" ? null : i.taxId,
     note: i.note === "" ? null : i.note,
   };
@@ -76,17 +89,19 @@ export async function listVendors(orgId: string, deps?: MasterDeps): Promise<Ven
 }
 
 export async function createVendor(orgId: string, input: VendorInput, deps?: MasterDeps): Promise<VendorRow> {
+  await verifyRefs(orgId, [{ field: "tradeIds", table: "trades", ids: input.tradeIds }], deps);
   const supabase = await getClient(deps);
   const { data, error } = await supabase
     .from("vendors")
     .insert({ ...toDb(input), organization_id: orgId })
     .select(COLUMNS)
     .single();
-  if (error) throwDbError(error);
+  if (error) throwDbError(error, { duplicate: DUPLICATE });
   return toRow(data as DbVendor);
 }
 
-export async function updateVendor(orgId: string, id: string, input: VendorInput, deps?: MasterDeps): Promise<void> {
+export async function updateVendor(orgId: string, id: string, input: VendorUpdateInput, deps?: MasterDeps): Promise<void> {
+  await verifyRefs(orgId, [{ field: "tradeIds", table: "trades", ids: input.tradeIds }], deps);
   const supabase = await getClient(deps);
   const { data, error } = await supabase
     .from("vendors")
@@ -94,11 +109,12 @@ export async function updateVendor(orgId: string, id: string, input: VendorInput
     .eq("id", id)
     .eq("organization_id", orgId)
     .select("id");
-  if (error) throwDbError(error);
+  if (error) throwDbError(error, { duplicate: DUPLICATE });
   assertAffected(data);
 }
 
 export async function deleteVendor(orgId: string, id: string, deps?: MasterDeps): Promise<void> {
+  await auditBeforeDelete(deps, "vendor", id, orgId);
   const supabase = await getClient(deps);
   const { data, error } = await supabase
     .from("vendors")
@@ -108,5 +124,4 @@ export async function deleteVendor(orgId: string, id: string, deps?: MasterDeps)
     .select("id");
   if (error) throwDbError(error, { inUse: "此廠商已有報價文件，無法刪除" });
   assertAffected(data);
-  await audit(deps, "vendor", id, orgId);
 }

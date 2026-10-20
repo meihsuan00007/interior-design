@@ -1,9 +1,8 @@
 import "server-only";
 import type { UnitInput } from "@/lib/validation/master";
 import {
-  MasterError,
   assertAffected,
-  audit,
+  auditThenRpc,
   getClient,
   moveSortable,
   throwDbError,
@@ -58,23 +57,5 @@ export async function moveUnit(orgId: string, id: string, direction: "up" | "dow
 }
 
 export async function deleteUnit(orgId: string, id: string, deps?: MasterDeps): Promise<void> {
-  const supabase = await getClient(deps);
-
-  const { count, error: countError } = await supabase
-    .from("catalog_items")
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", orgId)
-    .eq("unit_id", id);
-  if (countError) throwDbError(countError);
-  if ((count ?? 0) > 0) throw new MasterError("此單位仍有品項使用，無法刪除");
-
-  const { data, error } = await supabase
-    .from("units")
-    .delete()
-    .eq("id", id)
-    .eq("organization_id", orgId)
-    .select("id");
-  if (error) throwDbError(error, { inUse: "此單位仍被使用，無法刪除" });
-  assertAffected(data);
-  await audit(deps, "unit", id, orgId);
+  await auditThenRpc(deps, "unit", id, orgId, "delete_unit");
 }
