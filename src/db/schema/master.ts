@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { boolean, check, index, integer, pgTable, text, unique, uuid } from "drizzle-orm/pg-core";
 import { id, timestamps } from "./columns";
 import { organizations } from "./tenancy";
 
@@ -21,7 +21,10 @@ export const trades = pgTable(
     isProxyPurchase: boolean("is_proxy_purchase").notNull().default(false),
     ...timestamps(),
   },
-  (t) => [index("trades_organization_id_idx").on(t.organizationId)],
+  (t) => [
+    index("trades_organization_id_idx").on(t.organizationId),
+    unique("trades_organization_id_name_unique").on(t.organizationId, t.name),
+  ],
 );
 
 /** 單位（式、坪、尺、才、組…） */
@@ -34,7 +37,10 @@ export const units = pgTable(
     sort: integer("sort").notNull().default(0),
     ...timestamps(),
   },
-  (t) => [index("units_organization_id_idx").on(t.organizationId)],
+  (t) => [
+    index("units_organization_id_idx").on(t.organizationId),
+    unique("units_organization_id_name_unique").on(t.organizationId, t.name),
+  ],
 );
 
 /** 廠商；phone 為加密欄位（encryptField 輸出） */

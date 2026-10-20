@@ -10,7 +10,7 @@
 --   報價項目 A1      53000000-0000-4000-8000-000000000001
 begin;
 
-select plan(51);
+select plan(61);
 
 -- ── 乙公司 admin ────────────────────────────────────────────
 set local role authenticated;
@@ -166,7 +166,7 @@ reset role;
 -- 先以特權角色建立一個檔案（上傳者為甲 admin）
 insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind, uploaded_by)
 values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
-  'seed/plan2-floor.pdf', '平面圖.pdf', 'application/pdf', 1000, 'floor_plan',
+  '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/floor_plan/floor.pdf', '平面圖.pdf', 'application/pdf', 1000, 'floor_plan',
   '20000000-0000-4000-8000-000000000001');
 
 select throws_ok(
@@ -211,18 +211,45 @@ select is((select count(*) from project_files), 1::bigint, '監工可讀案場�
 select lives_ok(
   $$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
      values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
-       'seed/plan2-site.jpg', '現場.jpg', 'image/jpeg', 2000, 'photo') $$,
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/site.jpg', '現場.jpg', 'image/jpeg', 2000, 'photo') $$,
   '監工可上傳 photo');
 select throws_ok(
   $$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
      values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
-       'seed/plan2-fp2.pdf', '平面.pdf', 'application/pdf', 2000, 'floor_plan') $$,
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/floor_plan/fp2.pdf', '平面.pdf', 'application/pdf', 2000, 'floor_plan') $$,
   '42501', null, '監工不可上傳 floor_plan');
 select throws_ok(
   $$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind, uploaded_by)
      values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
-       'seed/plan2-site2.jpg', '現場2.jpg', 'image/jpeg', 2000, 'photo', '20000000-0000-4000-8000-000000000001') $$,
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/site2.jpg', '現場2.jpg', 'image/jpeg', 2000, 'photo', '20000000-0000-4000-8000-000000000001') $$,
   '42501', null, '上傳者必須是自己');
+
+select throws_ok($$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000004/30000000-0000-4000-8000-000000000001/photo/a.jpg', 'x', 'image/jpeg', 100, 'photo') $$,
+  '23514', null, '路徑不屬於本公司前綴被拒絕');
+select throws_ok($$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/drawing/b.jpg', 'x', 'image/jpeg', 100, 'photo') $$,
+  '23514', null, '路徑的類型段與 kind 不符被拒絕');
+select throws_ok($$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/../c.jpg', 'x', 'image/jpeg', 100, 'photo') $$,
+  '23514', null, '路徑含 .. 被拒絕');
+select throws_ok($$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/d.exe', 'x', 'application/x-msdownload', 100, 'photo') $$,
+  '23514', null, '不在白名單的 mime 被拒絕');
+select throws_ok($$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/e.pdf', 'x', 'application/pdf', 100, 'photo') $$,
+  '23514', null, 'photo 必須是圖片 mime');
+select throws_ok($$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind, is_deidentified)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/f.jpg', 'x', 'image/jpeg', 100, 'photo', true) $$,
+  '42501', null, '監工不可上傳已去識別化的照片');
+select throws_ok($$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000002/photo/g.jpg', 'x', 'image/jpeg', 100, 'photo') $$,
+  '42501', null, '監工不可上傳到未指派的案場 A2');
+select throws_ok(
+  $$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
+     values ('10000000-0000-4000-8000-000000000002', '30000000-0000-4000-8000-000000000001',
+       '10000000-0000-4000-8000-000000000002/30000000-0000-4000-8000-000000000001/photo/h.jpg', 'h.jpg', 'image/jpeg', 100, 'photo') $$,
+  '23514', null, 'organization_id 與案場所屬公司不一致被拒絕');
 select throws_ok(
   $$ update project_files set file_name = 'x' $$, '42501', null, '檔案資料不可修改');
 select lives_ok($$ delete from project_files where kind = 'photo' $$, '監工刪除不會報錯但無作用');
@@ -234,15 +261,23 @@ select set_config('request.jwt.claims',
 select lives_ok(
   $$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
      values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
-       'seed/plan2-draw.pdf', '施工圖.pdf', 'application/pdf', 3000, 'drawing') $$,
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/drawing/draw.pdf', '施工圖.pdf', 'application/pdf', 3000, 'drawing') $$,
   'admin 可上傳任何類型');
 select throws_ok(
   $$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind)
      values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001',
-       'seed/plan2-big.pdf', '大檔.pdf', 'application/pdf', 52428801, 'other') $$,
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/other/big.pdf', '大檔.pdf', 'application/pdf', 52428801, 'other') $$,
   '23514', null, '檔案超過 50MB 被拒絕');
 select lives_ok($$ delete from project_files where kind = 'photo' $$, 'admin 刪除檔案');
 select is((select count(*) from project_files where kind = 'photo'), 0::bigint, 'admin 可刪除檔案');
+
+-- 客戶端不能回填建立時間
+select lives_ok(
+  $$ insert into project_files (organization_id, project_id, storage_path, file_name, mime_type, size_bytes, kind, created_at, updated_at)
+     values ('10000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/other/ts.pdf', 'ts.pdf', 'application/pdf', 100, 'other', '2000-01-01', '2000-01-01') $$,
+  '管理員上傳（帶舊日期）');
+select ok((select created_at > now() - interval '1 day' and updated_at > now() - interval '1 day'
+  from project_files where file_name = 'ts.pdf'), '建立時間被強制為現在');
 
 reset role;
 

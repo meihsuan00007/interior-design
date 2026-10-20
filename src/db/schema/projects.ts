@@ -118,7 +118,7 @@ export const projectFiles = pgTable(
     uploadedBy: uuid("uploaded_by")
       .notNull()
       .default(sql`auth.uid()`)
-      .references(() => authUsers.id),
+      .references(() => authUsers.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -126,6 +126,16 @@ export const projectFiles = pgTable(
     index("project_files_organization_id_idx").on(t.organizationId),
     index("project_files_project_id_idx").on(t.projectId),
     check("project_files_size_bytes_check", sql`${t.sizeBytes} between 1 and 52428800`),
+    check(
+      "project_files_storage_path_check",
+      sql`starts_with(${t.storagePath}, ${t.organizationId}::text || '/' || ${t.projectId}::text || '/' || ${t.kind} || '/')
+        and position('..' in ${t.storagePath}) = 0 and position(chr(92) in ${t.storagePath}) = 0`,
+    ),
+    check(
+      "project_files_mime_type_check",
+      sql`(${t.mimeType} like 'image/%' or ${t.mimeType} in ('application/pdf', 'application/acad', 'image/vnd.dwg', 'application/dxf', 'application/octet-stream'))
+        and (${t.kind} <> 'photo' or ${t.mimeType} like 'image/%')`,
+    ),
     check("project_files_kind_check", sql`${t.kind} in ('floor_plan', 'photo', 'rendering', 'drawing', 'other')`),
   ],
 );

@@ -64,6 +64,20 @@
       "when": 1792455846858,
       "tag": "20261020002406_plan2_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792456045578,
+      "tag": "20261020002725_plan2_fix1_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792456066565,
+      "tag": "20261020002746_plan2_fix1_rls",
+      "breakpoints": true
     }
   ]
 }
