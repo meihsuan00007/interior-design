@@ -7,6 +7,8 @@ const notoSansTC = Noto_Sans_TC({
   variable: "--font-sans",
   weight: ["400", "500", "700"],
   display: "swap",
+  // 中文字型沒有可預先載入的子集（只有 latin 等），必須關閉 preload
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
