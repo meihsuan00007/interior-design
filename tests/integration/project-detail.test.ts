@@ -309,6 +309,23 @@ describe("fix round 1", () => {
     expect(f.fileName).toBe("abfdpc.pdf");
   });
 
+  test("recordProjectFile：150 字元檔名截斷到 100 以內並保留副檔名", async () => {
+    const id = await createProject(designer, input({ name: `長檔名-${sfx}` }));
+    const path = await putPdf(designerClient, id, "x.pdf");
+    const ctx: FileCtx = { orgId, supabase: designerClient };
+    await recordProjectFile(ctx, {
+      projectId: id,
+      kind: "floor_plan",
+      storagePath: path,
+      fileName: "字".repeat(146) + ".pdf",
+      mimeType: "application/pdf",
+      sizeBytes: PDF.byteLength,
+    });
+    const [f] = await listProjectFiles(ctx, id);
+    expect(Array.from(f.fileName).length).toBeLessThanOrEqual(100);
+    expect(f.fileName.endsWith(".pdf")).toBe(true);
+  });
+
   test("recordProjectFile 拒絕不在允許清單的 MIME（含 SVG）", async () => {
     const id = await createProject(designer, input({ name: `mime-${sfx}` }));
     const path = await putPdf(designerClient, id, "y.pdf");

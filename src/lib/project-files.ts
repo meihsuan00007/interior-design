@@ -76,7 +76,23 @@ export function validateUpload(f: UploadCandidate): UploadCheck {
   return { ok: true };
 }
 
-/** 安全檔名：保留中文；移除 / \ 與控制字元、開頭的點與連續的點；空白收合；最長 100 字元。 */
+export const MAX_FILE_NAME_LENGTH = 100;
+const MAX_EXT_LENGTH = 10;
+
+/** 以 code point 計長度截斷；副檔名（含點，不超過 10 字元）保留，截斷的是主檔名。 */
+function truncateKeepingExtension(name: string, max: number): string {
+  const chars = Array.from(name);
+  if (chars.length <= max) return name;
+  const dot = chars.lastIndexOf(".");
+  const extLength = dot > 0 ? chars.length - dot - 1 : 0;
+  if (extLength > 0 && extLength <= MAX_EXT_LENGTH) {
+    const ext = chars.slice(dot);
+    return (chars.slice(0, max - ext.length).join("").trim() + ext.join("")).trim();
+  }
+  return chars.slice(0, max).join("").trim();
+}
+
+/** 安全檔名：保留中文；移除 / \ 與控制字元、開頭的點與連續的點；空白收合；最長 100 個字元（以 code point 計），截斷時保留副檔名。 */
 export function safeFileName(fileName: string): string {
   const cleaned = fileName
     .replace(/[\/\\]/g, "")
@@ -87,7 +103,7 @@ export function safeFileName(fileName: string): string {
     .replace(/^\.+/, "")
     .replace(/\.{2,}/g, ".")
     .trim();
-  const truncated = Array.from(cleaned).slice(0, 100).join("").trim();
+  const truncated = truncateKeepingExtension(cleaned, MAX_FILE_NAME_LENGTH);
   return truncated === "" ? "file" : truncated;
 }
 

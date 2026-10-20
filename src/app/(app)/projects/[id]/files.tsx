@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   buildStoragePath,
+  safeFileName,
   FILE_KINDS,
   FILE_KIND_LABEL,
   resolveUploadMime,
@@ -84,7 +85,7 @@ export function FilesCard({
           projectId,
           kind: uploadKind,
           storagePath: path,
-          fileName: file.name,
+          fileName: safeFileName(file.name),
           mimeType: mime,
           sizeBytes: file.size,
         });

@@ -108,3 +108,31 @@ describe("isAllowedMime", () => {
     expect(isAllowedMime("")).toBe(false);
   });
 });
+
+describe("safeFileName（長檔名保留副檔名，以 code point 計）", () => {
+  test("字 × 300 + .pdf：剛好 100 個 code point 且以 .pdf 結尾", () => {
+    const n = safeFileName("字".repeat(300) + ".pdf");
+    expect(Array.from(n)).toHaveLength(100);
+    expect(n.endsWith(".pdf")).toBe(true);
+  });
+
+  test("大量 emoji 不超過 100 個 code point，副檔名保留", () => {
+    const n = safeFileName("😀".repeat(200) + ".jpeg");
+    expect(Array.from(n).length).toBeLessThanOrEqual(100);
+    expect(n.endsWith(".jpeg")).toBe(true);
+    expect(n).not.toMatch(/[\ud800-\udbff]$/); // 不會切在代理對中間
+  });
+
+  test("副檔名超過 10 字元視為沒有副檔名，直接截斷", () => {
+    const n = safeFileName("a".repeat(150) + "." + "b".repeat(20));
+    expect(Array.from(n)).toHaveLength(100);
+  });
+
+  test("沒有副檔名的長名稱截斷為 100", () => {
+    expect(Array.from(safeFileName("x".repeat(150)))).toHaveLength(100);
+  });
+
+  test("100 以內不變", () => {
+    expect(safeFileName("平面圖.pdf")).toBe("平面圖.pdf");
+  });
+});

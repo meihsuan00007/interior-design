@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { FILE_KINDS } from "@/lib/project-files";
+import { recordFileSchema } from "@/lib/validation/project-file";
 import { runWrite, UserError, type ActionResult } from "@/server/actions";
 import { ForbiddenError, getAppContext, getCurrentOrgFromCookie, requireOrgRole } from "@/server/context";
 import { createSignedDownloadUrl, deleteProjectFile, recordProjectFile } from "@/server/projects/files";
@@ -48,17 +48,8 @@ export async function setMemberAction(projectId: string, userId: string, add: bo
   );
 }
 
-const recordSchema = z.object({
-  projectId: z.uuid(),
-  kind: z.enum(FILE_KINDS),
-  storagePath: z.string().min(1).max(600),
-  fileName: z.string().min(1).max(100),
-  mimeType: z.string().min(1).max(100),
-  sizeBytes: z.number().int().min(1).max(52428800),
-});
-
-export async function recordFileAction(raw: z.input<typeof recordSchema>): Promise<ActionResult> {
-  const parsed = recordSchema.safeParse(raw);
+export async function recordFileAction(raw: z.input<typeof recordFileSchema>): Promise<ActionResult> {
+  const parsed = recordFileSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, message: "檔案資料無效" };
   const input = parsed.data;
   return runWrite({ revalidate: `/projects/${input.projectId}`, roles: ALL_ROLES, label: "登錄檔案失敗" }, async (org) => {
