@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { getAppContext, getCurrentOrgFromCookie } from "@/server/context";
 import { logoutAction } from "../(auth)/login/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") redirect("/login/mfa");
 
+  const ctx = await getAppContext();
+  const org = ctx.memberships.length > 0 ? await getCurrentOrgFromCookie(ctx) : null;
+  const canManageMaster = org?.role === "admin" || org?.role === "designer";
+
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b px-6 py-3">
@@ -20,6 +25,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="font-bold">
             室內設計報價管理系統
           </Link>
+          {canManageMaster && (
+            <Link href="/master/trades" className="text-muted-foreground hover:text-foreground">
+              主檔
+            </Link>
+          )}
           <Link href="/settings/security" className="text-muted-foreground hover:text-foreground">
             安全設定
           </Link>
