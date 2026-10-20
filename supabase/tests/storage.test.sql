@@ -11,12 +11,19 @@
 --   案場 A2          30000000-0000-4000-8000-000000000002（無人指派）
 begin;
 
-select plan(44);
+select plan(54);
 
 insert into auth.users (id, aud, role, email)
 values ('20000000-0000-4000-8000-0000000000f6', 'authenticated', 'authenticated', 'designer2-st@jia.example');
 insert into memberships (organization_id, user_id, role, can_view_unit_price, can_view_cost)
 values ('10000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-0000000000f6', 'designer', true, true);
+
+-- id 含英文字母的虛構案場（測試大寫 UUID 路徑用），甲 designer 為成員
+insert into projects (id, organization_id, name, status) values
+  ('abcdef00-0000-4000-8000-0000000000ab', '10000000-0000-4000-8000-000000000001', '虛構案場 hex', 'lead');
+insert into project_members (organization_id, project_id, user_id) values
+  ('10000000-0000-4000-8000-000000000001', 'abcdef00-0000-4000-8000-0000000000ab',
+   '20000000-0000-4000-8000-000000000002');
 
 -- ════════════════════════════════════════════════════════════
 -- bucket 設定
@@ -124,9 +131,21 @@ select is((select count(*) from storage.objects where id::text like 'a0000000-%'
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
 select lives_ok(
+  $$ insert into storage.objects (bucket_id, name, metadata) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b1-site.jpg', '{"mimetype":"image/jpeg"}') $$,
+  '監工可上傳圖片到被指派案場的 photo');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name, metadata) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b1b-doc.pdf', '{"mimetype":"application/pdf"}') $$,
+  '42501', null, '監工上傳到 photo 的非圖片被拒');
+select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('project-files',
-       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b1-site.jpg') $$,
-  '監工可上傳到被指派案場的 photo');
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b1c-none.jpg') $$,
+  '42501', null, '監工上傳沒有 mimetype 的檔案被拒');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name, metadata) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b1d-x.svg', '{"mimetype":"image/svg+xml"}') $$,
+  '42501', null, '監工上傳 SVG 被拒');
 select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('project-files',
        '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/floor_plan/b2-plan.pdf') $$,
@@ -174,6 +193,34 @@ select throws_ok(
   $$ insert into storage.objects (bucket_id, name) values ('project-files',
        '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo\b11.jpg') $$,
   '42501', null, '含反斜線的路徑被拒');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/.') $$,
+  '42501', null, '檔名為 . 被拒');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/   ') $$,
+  '42501', null, '檔名全為空白被拒');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b14' || chr(10) || '.jpg') $$,
+  '42501', null, '檔名含換行（控制字元）被拒');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b15' || chr(1) || '.jpg') $$,
+  '42501', null, '檔名含 0x01 控制字元被拒');
+select throws_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/ABCDEF00-0000-4000-8000-0000000000AB/photo/b16.jpg') $$,
+  '42501', null, '大寫 UUID 路徑被拒');
+select lives_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/abcdef00-0000-4000-8000-0000000000ab/photo/b16.jpg') $$,
+  '同一案場小寫 UUID 路徑可上傳（對照組）');
+select lives_ok(
+  $$ insert into storage.objects (bucket_id, name) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/b17 現場 照片.jpg') $$,
+  '檔名含空白與中文可上傳');
 
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
@@ -244,8 +291,8 @@ select set_config('request.jwt.claims',
 select is((select count(*) from storage.objects where bucket_id = 'project-files'), 0::bigint,
   'aal1：監工讀到 0');
 select throws_ok(
-  $$ insert into storage.objects (bucket_id, name) values ('project-files',
-       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/c1.jpg') $$,
+  $$ insert into storage.objects (bucket_id, name, metadata) values ('project-files',
+       '10000000-0000-4000-8000-000000000001/30000000-0000-4000-8000-000000000001/photo/c1.jpg', '{"mimetype":"image/jpeg"}') $$,
   '42501', null, 'aal1：監工不能上傳');
 with d as (
   delete from storage.objects where bucket_id = 'project-files' returning 1

@@ -11,7 +11,7 @@
 --   案場 A2          30000000-0000-4000-8000-000000000002（無人指派）
 begin;
 
-select plan(53);
+select plan(70);
 
 -- ── 本測試用虛構使用者：未指派案場的甲公司設計師 ─────────────
 insert into auth.users (id, aud, role, email)
@@ -49,6 +49,32 @@ select is(
 select ok(
   has_function_privilege('authenticated', 'app.set_project_member(uuid, uuid, boolean)', 'execute'),
   'authenticated 可執行特權函式');
+
+-- public 包裝函式（PostgREST rpc 用）：security invoker、anon／public 不可執行
+select is(
+  (select count(*) from pg_proc p
+   where p.pronamespace = 'public'::regnamespace
+     and p.proname in ('create_project', 'create_client_for_project', 'set_project_member', 'list_org_members')
+     and not p.prosecdef and p.proconfig @> array['search_path=""']),
+  4::bigint, '四個 public 包裝函式皆為 security invoker 且 search_path 為空');
+select ok(
+  not has_function_privilege('anon',
+    'public.create_project(uuid, text, text, text, numeric, text, text, boolean, text, text)', 'execute')
+  and not has_function_privilege('anon',
+    'public.create_client_for_project(uuid, text, text, text, text, text, text, text, text)', 'execute')
+  and not has_function_privilege('anon', 'public.set_project_member(uuid, uuid, boolean)', 'execute')
+  and not has_function_privilege('anon', 'public.list_org_members(uuid)', 'execute'),
+  'anon 不能執行 public 包裝函式');
+select is(
+  (select count(*) from pg_proc p
+   cross join lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+   where p.pronamespace = 'public'::regnamespace
+     and p.proname in ('create_project', 'create_client_for_project', 'set_project_member', 'list_org_members')
+     and a.grantee = 0 and a.privilege_type = 'EXECUTE'),
+  0::bigint, 'public 角色沒有包裝函式的執行權');
+select ok(
+  has_function_privilege('authenticated', 'public.list_org_members(uuid)', 'execute'),
+  'authenticated 可執行包裝函式');
 
 -- ════════════════════════════════════════════════════════════
 -- create_project
@@ -142,6 +168,17 @@ select is(
   (select organization_id from clients where id = current_setting('test.c_new')::uuid),
   '10000000-0000-4000-8000-000000000001'::uuid, '業主建立在案場所屬公司');
 
+select throws_ok(
+  $$ select app.create_client_for_project(current_setting('test.p_new')::uuid,
+       'v1:seed:seed:seed', null, null, null, null, null, null, null) $$,
+  '22023', '此案場已有業主', '案場已有業主時不能再建立業主');
+select throws_ok(
+  $$ select app.create_client_for_project('30000000-0000-4000-8000-000000000001',
+       'v1:seed:seed:seed', null, null, null, null, null, null, null) $$,
+  '22023', '此案場已有業主', '種子案場 A1 已有業主時拒絕');
+select is(
+  (select client_id from projects where id = current_setting('test.p_new')::uuid),
+  current_setting('test.c_new')::uuid, '拒絕後案場仍指向原業主');
 select throws_ok(
   $$ select app.create_client_for_project('30000000-0000-4000-8000-000000000002',
        'v1:seed:seed:seed', null, null, null, null, null, null, null) $$,
@@ -251,6 +288,21 @@ select lives_ok(
        '20000000-0000-4000-8000-0000000000f5', true) $$,
   '公司 admin 可指派設計師');
 
+-- 案場本來就沒有可編輯者（只有監工）時，admin 仍可移除監工
+select lives_ok(
+  $$ select app.set_project_member('30000000-0000-4000-8000-000000000002',
+       '20000000-0000-4000-8000-000000000003', true) $$,
+  'admin 把監工加入沒有設計師的案場 A2');
+select lives_ok(
+  $$ select app.set_project_member('30000000-0000-4000-8000-000000000002',
+       '20000000-0000-4000-8000-000000000003', false) $$,
+  '案場移除前就沒有可編輯者時，admin 可移除監工');
+reset role;
+select is(
+  (select count(*) from project_members where project_id = '30000000-0000-4000-8000-000000000002'),
+  0::bigint, 'A2 已無成員');
+set local role authenticated;
+
 -- 有第二位設計師後，原設計師可移除監工與自己
 select set_config('request.jwt.claims',
   '{"sub":"20000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
@@ -295,6 +347,35 @@ select ok(
   '乙公司 admin 可列出自己公司成員');
 
 -- ════════════════════════════════════════════════════════════
+-- 透過 public 包裝函式呼叫，權限檢查相同
+-- ════════════════════════════════════════════════════════════
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select lives_ok(
+  $$ select set_config('test.p_wrap', public.create_project('10000000-0000-4000-8000-000000000001',
+       '虛構案場 wrap', null, null, null, null, null, null, null, 'lead')::text, true) $$,
+  '設計師可透過 public.create_project 建立案場');
+select is(
+  (select count(*) from projects where id = current_setting('test.p_wrap')::uuid),
+  1::bigint, '透過包裝函式建立的案場讀得到');
+select ok(
+  (select count(*) from public.list_org_members('10000000-0000-4000-8000-000000000001')) > 0,
+  'public.list_org_members 可用');
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
+select throws_ok(
+  $$ select public.create_project('10000000-0000-4000-8000-000000000001', '虛構案場', null, null,
+       null, null, null, null, null, 'lead') $$,
+  '42501', null, '乙公司 admin 透過包裝函式也被拒');
+select throws_ok(
+  $$ select public.set_project_member(current_setting('test.p_wrap')::uuid,
+       '20000000-0000-4000-8000-000000000004', true) $$,
+  '42501', null, '乙公司 admin 透過包裝函式指派成員被拒');
+select throws_ok(
+  $$ select * from public.list_org_members('10000000-0000-4000-8000-000000000001') $$,
+  '42501', null, '乙公司 admin 透過包裝函式列出甲公司成員被拒');
+
+-- ════════════════════════════════════════════════════════════
 -- MFA：有 verified factor 而 session 為 aal1 時一律拒絕
 -- ════════════════════════════════════════════════════════════
 reset role;
@@ -337,6 +418,9 @@ select set_config('request.jwt.claims', '{"role":"anon"}', true);
 select throws_ok(
   $$ select app.list_org_members('10000000-0000-4000-8000-000000000001') $$,
   '42501', null, 'anon 呼叫特權函式被拒');
+select throws_ok(
+  $$ select public.list_org_members('10000000-0000-4000-8000-000000000001') $$,
+  '42501', null, 'anon 呼叫 public 包裝函式被拒');
 
 reset role;
 select * from finish();
