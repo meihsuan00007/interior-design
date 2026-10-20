@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import type { VendorRow } from "@/server/master/vendors";
-import { Field, FormFooter, fieldErrorsOf } from "../_components/form-parts";
+import { Field, FormFooter, fieldErrorsOf } from "@/components/form/form-parts";
 import { FormSheet } from "../_components/form-sheet";
 import { RowActions } from "../_components/row-actions";
 import { deleteVendorAction, saveVendorAction } from "./actions";

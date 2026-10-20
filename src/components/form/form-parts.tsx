@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ActionResult } from "@/server/master/action";
+import type { ActionResult } from "@/server/actions";
 
 export function Field({
   label,

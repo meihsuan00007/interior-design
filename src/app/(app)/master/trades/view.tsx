@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { TradeRow } from "@/server/master/trades";
-import { CheckboxField, Field, FormFooter, fieldErrorsOf } from "../_components/form-parts";
+import { CheckboxField, Field, FormFooter, fieldErrorsOf } from "@/components/form/form-parts";
 import { FormSheet } from "../_components/form-sheet";
 import { RowActions } from "../_components/row-actions";
 import { deleteTradeAction, moveTradeAction, saveTradeAction } from "./actions";

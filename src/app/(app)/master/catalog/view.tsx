@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { PRICING_METHOD_LABEL, PRICING_METHOD_OPTIONS } from "@/lib/pricing-method";
 import type { CatalogItemRow } from "@/server/master/catalog";
-import { Field, FormFooter, SelectField, fieldErrorsOf } from "../_components/form-parts";
+import { Field, FormFooter, SelectField, fieldErrorsOf } from "@/components/form/form-parts";
 import { FormSheet } from "../_components/form-sheet";
 import { RowActions } from "../_components/row-actions";
 import { deleteCatalogItemAction, saveCatalogItemAction } from "./actions";

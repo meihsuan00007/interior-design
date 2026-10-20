@@ -2,14 +2,12 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeAudit as defaultWriteAudit } from "@/lib/audit";
 import { createClient } from "@/lib/supabase/server";
+import { UserError } from "@/server/actions";
 
-/** 可預期的、可直接顯示給使用者的錯誤。 */
-export class MasterError extends Error {
-  constructor(
-    message: string,
-    public readonly fieldErrors?: Record<string, string>,
-  ) {
-    super(message);
+/** 主檔的可預期錯誤（可直接顯示給使用者）。 */
+export class MasterError extends UserError {
+  constructor(message: string, fieldErrors?: Record<string, string>) {
+    super(message, fieldErrors);
     this.name = "MasterError";
   }
 }

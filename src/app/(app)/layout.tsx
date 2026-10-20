@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AppShell } from "@/components/app-shell/shell";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getAppContext, getCurrentOrgFromCookie } from "@/server/context";
@@ -31,26 +31,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b px-6 py-3">
-        <nav className="flex items-center gap-4 text-sm">
-          <Link href="/" className="font-bold">
-            室內設計報價管理系統
-          </Link>
-          <Link href="/master/trades" className="text-muted-foreground hover:text-foreground">
-            主檔
-          </Link>
-          <Link href="/settings/security" className="text-muted-foreground hover:text-foreground">
-            安全設定
-          </Link>
-        </nav>
-        <form action={logoutAction}>
-          <Button type="submit" variant="outline" size="sm">
-            登出
-          </Button>
-        </form>
-      </header>
+    <AppShell
+      orgName={org.organizationName}
+      currentOrgId={org.organizationId}
+      orgs={
+        ctx.memberships.length > 1
+          ? ctx.memberships.map((m) => ({ id: m.organizationId, name: m.organizationName }))
+          : []
+      }
+      canManage={org.role === "admin" || org.role === "designer"}
+    >
       {children}
-    </div>
+    </AppShell>
   );
 }

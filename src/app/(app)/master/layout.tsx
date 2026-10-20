@@ -1,4 +1,4 @@
-import { MasterTabs } from "./_components/master-tabs";
+import { MasterTabs } from "./_components/tabs";
 
 export default function MasterLayout({ children }: { children: React.ReactNode }) {
   return (

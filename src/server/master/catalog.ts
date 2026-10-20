@@ -1,4 +1,5 @@
 import "server-only";
+import { escapeLike } from "@/lib/escape-like";
 import type { CatalogItemInput, PricingMethod } from "@/lib/validation/master";
 import {
   assertAffected,
@@ -68,11 +69,6 @@ const toDb = (i: CatalogItemInput) => ({
   pricing_method: i.pricingMethod,
   note: i.note === "" ? null : i.note,
 });
-
-/** 轉義 ilike 的萬用字元，避免使用者輸入 % 或 _ 時比對到所有品項。 */
-export function escapeLike(q: string): string {
-  return q.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
 
 export async function listCatalogItems(
   orgId: string,
