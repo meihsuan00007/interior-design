@@ -1,0 +1,1 @@
+ALTER TABLE "project_files" ADD CONSTRAINT "project_files_mime_type_no_svg_check" CHECK (lower("project_files"."mime_type") not like 'image/svg%');

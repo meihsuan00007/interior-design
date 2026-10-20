@@ -136,6 +136,8 @@ export const projectFiles = pgTable(
       sql`(${t.mimeType} like 'image/%' or ${t.mimeType} in ('application/pdf', 'application/acad', 'image/vnd.dwg', 'application/dxf', 'application/octet-stream'))
         and (${t.kind} <> 'photo' or ${t.mimeType} like 'image/%')`,
     ),
+    // SVG 可內嵌指令碼，一律不接受（大小寫與參數變化皆擋）
+    check("project_files_mime_type_no_svg_check", sql`lower(${t.mimeType}) not like 'image/svg%'`),
     check("project_files_kind_check", sql`${t.kind} in ('floor_plan', 'photo', 'rendering', 'drawing', 'other')`),
   ],
 );

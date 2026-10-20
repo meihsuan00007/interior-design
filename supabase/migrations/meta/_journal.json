@@ -78,6 +78,27 @@
       "when": 1792456066565,
       "tag": "20261020002746_plan2_fix1_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792456476513,
+      "tag": "20261020003436_plan2_no_svg",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792456477491,
+      "tag": "20261020003437_plan2_functions",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1792456478504,
+      "tag": "20261020003438_plan2_storage",
+      "breakpoints": true
     }
   ]
 }
