@@ -12,6 +12,13 @@
 - 目前階段：計畫 1（基礎建設與計價核心）完成於分支 `feat/plan-1-foundation`。整體計畫見 [docs/architecture-plan.md](docs/architecture-plan.md)。
 - 計畫 1 的實作裁定（Ruling 1～33）與延後的次要問題：[docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md](docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md)。後續計畫必須沿用這些裁定。
 
+## 使用者與文件規則（必讀）
+
+- 使用者**不讀、不寫程式**，所有修改都透過 Claude Code。對使用者的說明避免程式術語；需要使用者操作時，**每一步都寫清楚點哪裡、輸入什麼、會看到什麼**。
+- **新增或修改任何畫面前，先讀 [docs/ui-components.md](docs/ui-components.md)**（或 grep 關鍵字，例如 `button`、`modal`、`確認`、`下拉`、`金額`），沿用既有元件，不得另做一套。
+- 新增共用元件、工具函式、中文標籤對照表，或發現重複／不一致時，**同一次修改內更新 `docs/ui-components.md`**（含「搜尋關鍵字」）。
+- 畫面操作或流程有變動時，同步更新 [docs/user-guide/](docs/user-guide/) 的操作手冊（逐步點擊說明）。
+
 ## 開發環境
 
 - 本機需要 Docker Desktop（Supabase 本機環境）。啟動：`npx supabase start`；重建資料庫：`npx supabase db reset`。
