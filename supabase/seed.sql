@@ -49,16 +49,40 @@ insert into public.memberships (organization_id, user_id, role, can_view_unit_pr
 
 -- ── 甲設計主檔 ─────────────────────────────────────────────
 insert into public.trades (id, organization_id, name, sort, is_proxy_purchase, default_include_in_mgmt_fee) values
-  ('41000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '拆除工程', 1, false, true),
-  ('41000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '代購', 99, true, false);
+  ('41000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '拆除', 20, false, true),
+  ('41000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '代購', 220, true, false);
 
 insert into public.units (id, organization_id, name, sort) values
-  ('42000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '坪', 1),
-  ('42000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '式', 2);
+  ('42000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '坪', 20),
+  ('42000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '式', 10);
+
+-- 預設工種與單位（已存在同名者略過）；須在下方廠商、品項引用之前執行
+select app.seed_org_defaults('10000000-0000-4000-8000-000000000001');
+select app.seed_org_defaults('10000000-0000-4000-8000-000000000002');
 
 insert into public.vendors (id, organization_id, name, trade_ids, contact_name, phone_enc) values
   ('43000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '虛構拆除工程行',
-   array['41000000-0000-4000-8000-000000000001'::uuid], '王師傅（虛構）', 'v1:seed:seed:seed');
+   array['41000000-0000-4000-8000-000000000001'::uuid], '王師傅（虛構）', 'v1:seed:seed:seed'),
+  ('43000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000001', '虛構水電行',
+   array[(select id from public.trades where organization_id = '10000000-0000-4000-8000-000000000001' and name = '水電')],
+   '李師傅（虛構）', 'v1:seed:seed:seed'),
+  ('43000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', '虛構木工坊',
+   array[(select id from public.trades where organization_id = '10000000-0000-4000-8000-000000000001' and name = '木作')],
+   '陳師傅（虛構）', 'v1:seed:seed:seed');
+
+-- 品項主檔（虛構）
+insert into public.catalog_items (organization_id, trade_id, name, unit_id, spec, pricing_method)
+select o.id, t.id, c.name, u.id, c.spec, c.method
+from (select '10000000-0000-4000-8000-000000000001'::uuid as id) o
+cross join (values
+  ('拆除', '室內地坪拆除', '坪', null, 'unit_x_qty'),
+  ('水電', '新增插座迴路', '迴', '2.0mm 電線', 'unit_x_qty'),
+  ('木作', '平釘天花板', '坪', '角材骨架、矽酸鈣板', 'per_ping'),
+  ('油漆', '室內乳膠漆（全室）', '式', null, 'lump_sum'),
+  ('系統櫃', '系統衣櫃', '尺', 'E1 級板材', 'unit_x_qty')
+) as c(trade_name, name, unit_name, spec, method)
+join public.trades t on t.organization_id = o.id and t.name = c.trade_name
+join public.units u on u.organization_id = o.id and u.name = c.unit_name;
 
 -- ── 業主與案場 ─────────────────────────────────────────────
 insert into public.clients (id, organization_id, name_enc, phone_enc, email_enc, name_bidx) values

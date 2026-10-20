@@ -50,6 +50,20 @@
       "when": 1792437070338,
       "tag": "20261019191110_quote_fees_no_mgmt",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792455832730,
+      "tag": "20261020002352_plan2_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792455846858,
+      "tag": "20261020002406_plan2_rls",
+      "breakpoints": true
     }
   ]
 }

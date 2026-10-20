@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, check, index, numeric, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, index, numeric, pgSchema, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { id, ratio, TAX_MODES, timestamps } from "./columns";
 import { organizations } from "./tenancy";
 
@@ -34,7 +34,26 @@ export const clients = pgTable(
 );
 
 export const PROJECT_CONDITIONS = ["new", "resale", "old"] as const;
-export const PROJECT_STATUSES = ["lead", "quoting", "contracted", "in_progress", "completed", "closed"] as const;
+export const PROJECT_STATUSES = [
+  "lead",
+  "quoting",
+  "contracted",
+  "in_progress",
+  "completed",
+  "warranty",
+  "archived",
+] as const;
+export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
+
+export const PROJECT_STATUS_LABEL: Record<ProjectStatus, string> = {
+  lead: "洽談中",
+  quoting: "報價中",
+  contracted: "已簽約",
+  in_progress: "施工中",
+  completed: "完工",
+  warranty: "保固中",
+  archived: "已封存",
+};
 
 /** 案場。address_full_enc 為加密欄位；district 為公開的行政區 */
 export const projects = pgTable(
@@ -66,9 +85,47 @@ export const projects = pgTable(
     check("projects_condition_check", sql`${t.condition} in ('new', 'resale', 'old')`),
     check(
       "projects_status_check",
-      sql`${t.status} in ('lead', 'quoting', 'contracted', 'in_progress', 'completed', 'closed')`,
+      sql`${t.status} in ('lead', 'quoting', 'contracted', 'in_progress', 'completed', 'warranty', 'archived')`,
     ),
     check("projects_tax_mode_check", sql`${t.taxMode} in ('exclusive', 'inclusive')`),
     check("projects_mgmt_fee_rate_check", sql`${t.mgmtFeeRate} >= 0`),
+  ],
+);
+
+export const PROJECT_FILE_KINDS = ["floor_plan", "photo", "rendering", "drawing", "other"] as const;
+export type ProjectFileKind = (typeof PROJECT_FILE_KINDS)[number];
+
+/** 僅供外鍵參照（auth schema 由 Supabase 管理，不由 drizzle 遷移建立） */
+const authUsers = pgSchema("auth").table("users", { id: uuid("id").primaryKey() });
+
+/** 案場檔案（平面圖、現場照片等）。實體檔案存在 Storage，這裡只存中繼資料 */
+export const projectFiles = pgTable(
+  "project_files",
+  {
+    id: id(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    storagePath: text("storage_path").notNull().unique(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull(),
+    kind: text("kind", { enum: PROJECT_FILE_KINDS }).notNull(),
+    isDeidentified: boolean("is_deidentified").notNull().default(false),
+    uploadedBy: uuid("uploaded_by")
+      .notNull()
+      .default(sql`auth.uid()`)
+      .references(() => authUsers.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("project_files_organization_id_idx").on(t.organizationId),
+    index("project_files_project_id_idx").on(t.projectId),
+    check("project_files_size_bytes_check", sql`${t.sizeBytes} between 1 and 52428800`),
+    check("project_files_kind_check", sql`${t.kind} in ('floor_plan', 'photo', 'rendering', 'drawing', 'other')`),
   ],
 );
