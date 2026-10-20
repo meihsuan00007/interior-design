@@ -134,4 +134,5 @@
 | 種子資料裡的業主姓名顯示異常或讀不到 | 種子資料只放了佔位字串，程式解不開 | 正常現象。自己新增一個虛構案場（「三、B」）就能看到完整效果 |
 | 資料變得很亂、想回到最初狀態 | 測試留下的資料 | 跟 Claude Code 說「幫我重建本機資料庫」（會執行 `npx supabase db reset`，**本機所有資料會清空**） |
 | 畫面出現 `Could not find the module … in the React Client Manifest` | Next.js 誤把上層資料夾當成專案根目錄（已於 `next.config.ts` 修正） | 若再出現，跟 Claude Code 說「網站出現 React Client Manifest 錯誤」，它會清除快取並重啟 |
+| 登入後出現 `An unexpected response was received from the server`，或終端機出現 `ENOENT … _buildManifest.js.tmp` | **同一個資料夾同時開了兩個網站**（例如兩個 Claude Code 對話各自執行 `npm run dev`），互相覆蓋暫存檔 | 同一時間只保留一個網站。跟 Claude Code 說「關掉所有網站，只重新啟動一個」 |
 | 閒置一陣子後被登出 | 閒置 2 小時自動登出（安全設計） | 重新登入即可 |
