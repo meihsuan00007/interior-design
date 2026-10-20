@@ -1,0 +1,166 @@
+-- 多租戶 RLS 測試：使用 seed.sql 中的虛構公司、使用者與案場（固定 UUID）
+--   甲設計  org      10000000-0000-4000-8000-000000000001
+--   乙設計  org      10000000-0000-4000-8000-000000000002
+--   甲 admin         20000000-0000-4000-8000-000000000001
+--   甲 designer      20000000-0000-4000-8000-000000000002（只被指派到案場 A1）
+--   甲 supervisor    20000000-0000-4000-8000-000000000003（被指派到案場 A1）
+--   乙 admin         20000000-0000-4000-8000-000000000004
+--   案場 A1          30000000-0000-4000-8000-000000000001（業主 40000000-…-0001）
+--   案場 A2          30000000-0000-4000-8000-000000000002（無人指派；業主 40000000-…-0002）
+--   報價項目 A1      53000000-0000-4000-8000-000000000001
+begin;
+
+select plan(33);
+
+-- ── 乙公司 admin ────────────────────────────────────────────
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
+
+select is(
+  (select count(*) from projects where organization_id = '10000000-0000-4000-8000-000000000001'),
+  0::bigint, '跨租戶讀不到案場');
+select is(
+  (select count(*) from clients where organization_id = '10000000-0000-4000-8000-000000000001'),
+  0::bigint, '跨租戶讀不到業主');
+select is((select count(*) from quote_items_scope), 0::bigint, '跨租戶讀不到施工範圍');
+select is(
+  (select count(*) from quote_items_scope where project_id = '30000000-0000-4000-8000-000000000001'),
+  0::bigint, '跨租戶指定案場也讀不到施工範圍');
+
+reset role;
+
+-- ── 甲公司 designer ────────────────────────────────────────
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+
+select is((select count(*) from projects), 1::bigint, '未指派的案場讀不到');
+select ok((select count(*) from cost_prices) > 0, 'designer 讀得到被指派案場的成本');
+select ok((select count(*) from quote_items) > 0, 'designer 讀得到含金額的報價項目');
+select ok((select count(*) from clients) > 0, 'designer 讀得到被指派案場的業主');
+select is((select count(*) from quote_item_pricing_meta), 1::bigint, '可看成本的 designer 讀得到加成率');
+
+reset role;
+
+-- ── 甲公司 designer 改為不可看成本 ──────────────────────────
+update memberships set can_view_cost = false
+where user_id = '20000000-0000-4000-8000-000000000002';
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+
+select is((select count(*) from quote_item_pricing_meta), 0::bigint, '不可看成本的 designer 讀不到加成率');
+select ok((select count(*) from quote_items) > 0, '不可看成本的 designer 仍讀得到報價項目');
+
+reset role;
+
+update memberships set can_view_cost = true
+where user_id = '20000000-0000-4000-8000-000000000002';
+
+-- ── 甲公司 supervisor（被指派到案場 A1）────────────────────
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000003","role":"authenticated"}', true);
+
+select is((select count(*) from projects), 1::bigint, '監工讀得到被指派的案場');
+select is((select count(*) from cost_prices), 0::bigint, '監工讀不到成本');
+select is((select count(*) from clients), 0::bigint, '監工讀不到業主資料');
+select is((select count(*) from quote_items), 0::bigint, '監工讀不到含金額的報價項目');
+select is((select count(*) from quote_versions), 0::bigint, '監工讀不到報價版本（含總計快取）');
+select is((select count(*) from quote_item_pricing_meta), 0::bigint, '監工讀不到加成率');
+select isnt_empty('select 1 from quote_items_scope', '監工讀得到施工範圍（無金額欄位）');
+select is((select count(*) from quote_items_scope), 1::bigint, '監工只讀得到被指派案場的施工範圍');
+select is(
+  (select count(*) from quote_items_scope where project_id = '30000000-0000-4000-8000-000000000002'),
+  0::bigint, '監工讀不到未指派案場的施工範圍');
+
+reset role;
+
+-- ── quote_items_scope 不含任何價格或金額欄位 ────────────────
+select is(
+  (select count(*) from information_schema.columns
+   where table_schema = 'public' and table_name = 'quote_items_scope'
+     and column_name in ('client_unit_price', 'markup_rate_used', 'ref_price_min', 'ref_price_max')),
+  0::bigint, '施工範圍 view 不含單價、加成率、參考價欄位');
+select is(
+  (select count(*) from information_schema.columns
+   where table_schema = 'public' and table_name = 'quote_items_scope'
+     and (column_name like '%price%' or column_name like '%amount%')),
+  0::bigint, '施工範圍 view 沒有名稱含 price 或 amount 的欄位');
+
+-- ── designer 不能把案場指向無權限的業主 ────────────────────
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+
+select throws_ok(
+  $$ update projects set client_id = '40000000-0000-4000-8000-000000000002'
+     where id = '30000000-0000-4000-8000-000000000001' $$,
+  '42501', '無權將案場指向此業主', 'designer 不能把案場改指向未指派案場的業主');
+select is(
+  (select count(*) from clients where id = '40000000-0000-4000-8000-000000000002'),
+  0::bigint, 'designer 讀不到未指派案場的業主');
+
+reset role;
+
+-- ── 歸屬欄位不可變更（designer 同時是乙公司 designer）────────
+insert into memberships (organization_id, user_id, role, can_view_unit_price, can_view_cost)
+values ('10000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000002', 'designer', true, true);
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+
+select throws_ok(
+  $$ update projects set organization_id = '10000000-0000-4000-8000-000000000002'
+     where id = '30000000-0000-4000-8000-000000000001' $$,
+  '23514', 'projects.organization_id 不可變更', '案場不能搬到其他公司');
+select throws_ok(
+  $$ update quote_items set organization_id = '10000000-0000-4000-8000-000000000002'
+     where id = '53000000-0000-4000-8000-000000000001' $$,
+  '23514', 'quote_items.organization_id 不可變更', '報價項目不能搬到其他公司');
+select throws_ok(
+  $$ update quote_items set project_id = '30000000-0000-4000-8000-000000000002'
+     where id = '53000000-0000-4000-8000-000000000001' $$,
+  '23514', 'quote_items.project_id 不可變更', '報價項目不能搬到其他案場');
+
+reset role;
+
+delete from memberships
+where organization_id = '10000000-0000-4000-8000-000000000002'
+  and user_id = '20000000-0000-4000-8000-000000000002';
+
+-- ── 甲公司 admin ───────────────────────────────────────────
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+
+select lives_ok(
+  $$ update projects set client_id = '40000000-0000-4000-8000-000000000002'
+     where id = '30000000-0000-4000-8000-000000000001' $$,
+  'admin 可以把案場改指向公司內任何業主');
+
+-- audit_logs 不能改、不能刪、不能清空（admin 也一樣）
+select throws_ok($$ update audit_logs set action = 'x' $$, '42501', null, 'audit_logs 不可修改');
+select throws_ok($$ delete from audit_logs $$, '42501', null, 'audit_logs 不可刪除');
+select throws_ok($$ truncate quote_fees $$, '42501', null, '一般使用者不可 truncate 任何資料表');
+
+-- 將 designer 移出案場
+delete from project_members where user_id = '20000000-0000-4000-8000-000000000002';
+
+reset role;
+
+-- ── 移出後的 designer ──────────────────────────────────────
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"20000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+
+select is((select count(*) from projects), 0::bigint, '移出案場後讀不到');
+select is((select count(*) from cost_prices), 0::bigint, '移出案場後讀不到成本');
+
+reset role;
+
+select * from finish();
+rollback;

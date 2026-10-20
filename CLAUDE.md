@@ -9,7 +9,23 @@
 
 ## 專案狀態
 
-- 目前階段：架構已確認，準備實作第一階段。計畫見 [docs/architecture-plan.md](docs/architecture-plan.md)。
+- 目前階段：計畫 1（基礎建設與計價核心）完成於分支 `feat/plan-1-foundation`。整體計畫見 [docs/architecture-plan.md](docs/architecture-plan.md)。
+- 計畫 1 的實作裁定（Ruling 1～33）與延後的次要問題：[docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md](docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md)。後續計畫必須沿用這些裁定。
+
+## 開發環境
+
+- 本機需要 Docker Desktop（Supabase 本機環境）。啟動：`npx supabase start`；重建資料庫：`npx supabase db reset`。
+- 測試：`npm test`（Vitest）、`npx supabase test db`（pgTAP，含 RLS／MFA／守門測試）。
+- 使用者請求一律走 Supabase client（帶 JWT，受 RLS 約束）；Drizzle `db` 以 postgres 角色連線、會繞過 RLS，只用於遷移、種子與受控的伺服器端特權寫入。
+- 新增資料表時，`supabase/tests/guards.test.sql` 會檢查 RLS、`mfa_required` policy、anon 無權限、organization_id 不可變更 trigger；必須一併補上。
+
+## 上線前必做清單
+
+- `can_view_unit_price`（看單價 vs 只看總價）在資料庫層強制（計畫 3）。
+- 雲端 Supabase 後台關閉公開註冊（雲端不讀 `config.toml`）。
+- 確認 GoTrue 的登入速率限制不會因伺服器端呼叫而變成全公司共用同一個 IP 額度；驗證碼（TOTP）驗證端點的節流。
+- 考慮開啟 `secure_password_change`。
+- 選用：Supabase `[auth.sessions] inactivity_timeout` 作為閒置登出第二道防線——**雲端版需 Pro 付費方案，啟用前須經使用者同意**。
 - 歷史資料盤點：[docs/legacy-data-inventory.md](docs/legacy-data-inventory.md)。
 
 ## 個資與資料安全（硬性規定）

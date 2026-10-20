@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1792434804734,
+      "tag": "20261019183324_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792434834906,
+      "tag": "20261019183354_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792435379952,
+      "tag": "20261019184259_quote_item_pricing_meta",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792435387498,
+      "tag": "20261019184307_rls_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792436332645,
+      "tag": "20261019185852_login_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792436333578,
+      "tag": "20261019185853_mfa_enforcement",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792437070338,
+      "tag": "20261019191110_quote_fees_no_mgmt",
+      "breakpoints": true
+    }
+  ]
+}
