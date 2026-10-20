@@ -9,8 +9,9 @@
 
 ## 專案狀態
 
-- 目前階段：計畫 1（基礎建設與計價核心）完成於分支 `feat/plan-1-foundation`。整體計畫見 [docs/architecture-plan.md](docs/architecture-plan.md)。
-- 計畫 1 的實作裁定（Ruling 1～33）與延後的次要問題：[docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md](docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md)。後續計畫必須沿用這些裁定。
+- 目前階段：計畫 1（基礎建設與計價核心）完成於分支 `feat/plan-1-foundation`；計畫 2（主檔與案場管理）完成於分支 `feat/plan-2-master-data`。整體計畫見 [docs/architecture-plan.md](docs/architecture-plan.md)。
+- 計畫 1 的實作裁定（Ruling 1～33）與延後的次要問題：[docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md](docs/superpowers/plans/2026-10-20-foundation-and-pricing-core.ledger.md)。
+- 計畫 2 的實作裁定（R1～R25）與延後的次要問題：[docs/superpowers/plans/2026-10-20-plan-2-master-data-and-projects.ledger.md](docs/superpowers/plans/2026-10-20-plan-2-master-data-and-projects.ledger.md)。後續計畫必須沿用這些裁定。
 
 ## 使用者與文件規則（必讀）
 
