@@ -6,33 +6,24 @@ import { runWrite, UserError, type ActionResult } from "@/server/actions";
 import { ForbiddenError, getAppContext, getCurrentOrgFromCookie, requireOrgRole } from "@/server/context";
 import { createSignedDownloadUrl, deleteProjectFile, recordProjectFile } from "@/server/projects/files";
 import {
-  canHandleClient,
   clearClientContactField,
-  getProjectClientId,
   setProjectMember,
 } from "@/server/projects/mutations";
-import { revealClientContact } from "@/server/pii";
+import type { RevealResult } from "@/server/projects/reveal";
+import { revealForProject } from "@/server/projects/reveal";
 
 const uuid = z.uuid();
 const EDITORS = ["admin", "designer"] as ("admin" | "designer")[];
 const ALL_ROLES = ["admin", "designer", "supervisor"] as ("admin" | "designer" | "supervisor")[];
 
-export type RevealResult =
-  | { ok: true; phone: string | null; email: string | null; nationalId: string | null }
-  | { ok: false; message: string };
 
-/** 揭露電話／Email／身分證：先寫稽核（失敗即中止），再回傳明文。clientId 由案場經 RLS 取得，不信任輸入。 */
 export async function revealContactAction(projectId: string): Promise<RevealResult> {
   const ctx = await getAppContext();
   try {
     if (!uuid.safeParse(projectId).success) return { ok: false, message: "找不到案場" };
     const org = await getCurrentOrgFromCookie(ctx);
-    if (!canHandleClient(org.role)) return { ok: false, message: "沒有權限" };
     requireOrgRole(ctx, org.organizationId, EDITORS);
-    const clientId = await getProjectClientId({ orgId: org.organizationId, role: org.role }, projectId);
-    if (!clientId) return { ok: false, message: "找不到業主" };
-    const r = await revealClientContact(clientId, org.organizationId);
-    return { ok: true, ...r };
+    return await revealForProject({ orgId: org.organizationId, role: org.role }, projectId);
   } catch (e) {
     if (e instanceof ForbiddenError) return { ok: false, message: "沒有權限" };
     console.error("揭露業主聯絡資料失敗", e instanceof Error ? e.message : "unknown");
@@ -61,7 +52,7 @@ const recordSchema = z.object({
   projectId: z.uuid(),
   kind: z.enum(FILE_KINDS),
   storagePath: z.string().min(1).max(600),
-  fileName: z.string().min(1).max(300),
+  fileName: z.string().min(1).max(100),
   mimeType: z.string().min(1).max(100),
   sizeBytes: z.number().int().min(1).max(52428800),
 });
@@ -82,7 +73,7 @@ export async function deleteFileAction(projectId: string, fileId: string): Promi
     return { ok: false, message: "找不到檔案" };
   }
   return runWrite({ revalidate: `/projects/${projectId}`, roles: EDITORS, label: "刪除檔案失敗" }, (org) =>
-    deleteProjectFile({ orgId: org.organizationId }, fileId),
+    deleteProjectFile({ orgId: org.organizationId }, fileId, projectId),
   );
 }
 

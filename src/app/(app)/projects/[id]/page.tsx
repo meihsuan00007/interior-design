@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PROJECT_STATUS_LABEL } from "@/db/schema/projects";
 import { getAppContext, getCurrentOrgFromCookie } from "@/server/context";
 import { emailPrefix, getProjectDetail } from "@/server/projects/detail";
-import { createSignedDownloadUrl, listProjectFiles } from "@/server/projects/files";
+import { createSignedThumbUrls, listProjectFiles } from "@/server/projects/files";
 import { StatusBadge } from "../status-badge";
 import { ClientCard } from "./client";
 import { FilesCard, type FileView } from "./files";
@@ -41,20 +41,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   if (!detail) notFound();
 
   const rows = await listProjectFiles({ orgId: org.organizationId }, id);
-  // 圖片縮圖：每張產生 600 秒簽名網址（使用者的 RLS client）
-  const files: FileView[] = await Promise.all(
-    rows.map(async (f) => {
-      let thumbUrl: string | null = null;
-      if (f.mimeType.toLowerCase().startsWith("image/")) {
-        try {
-          thumbUrl = await createSignedDownloadUrl({ orgId: org.organizationId }, f.id);
-        } catch {
-          thumbUrl = null;
-        }
-      }
-      return { ...f, thumbUrl };
-    }),
-  );
+  // 圖片縮圖：一次批次產生 600 秒簽名網址（使用者的 RLS client）
+  const thumbs = await createSignedThumbUrls({ orgId: org.organizationId }, rows);
+  const files: FileView[] = rows.map((f) => ({ ...f, thumbUrl: thumbs.get(f.id) ?? null }));
 
   const toView = (m: { userId: string; email: string; role: "admin" | "designer" | "supervisor" }) => ({
     userId: m.userId,

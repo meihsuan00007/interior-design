@@ -103,10 +103,17 @@ export function FilesCard({
 
   function download(f: FileView) {
     setError(null);
+    // 行動瀏覽器會擋下 await 之後才開的視窗：先在點擊當下同步開空白視窗，取得網址後再導向
+    const w = window.open("", "_blank");
+    if (w) w.opener = null;
     startTransition(async () => {
       const r = await signedUrlAction(f.id);
-      if (!r.ok) return setError(r.message);
-      window.open(r.url, "_blank", "noopener,noreferrer");
+      if (!r.ok) {
+        w?.close();
+        return setError(r.message);
+      }
+      if (w) w.location.href = r.url;
+      else window.location.href = r.url;
     });
   }
 

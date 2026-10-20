@@ -20,6 +20,7 @@ import {
   type ProjectWriteCtx,
 } from "@/server/projects/mutations";
 import { revealClientContact } from "@/server/pii";
+import { revealForProject } from "@/server/projects/reveal";
 import { auditVia, randomSuffix, signInAs } from "./helpers";
 
 const sfx = randomSuffix();
@@ -264,11 +265,12 @@ describe("檔案上傳與簽名網址", () => {
           },
         },
         file.id,
+        id,
       ),
     ).rejects.toThrow("稽核寫入失敗");
     expect(await listProjectFiles(base, id)).toHaveLength(1);
 
-    await deleteProjectFile({ ...base, writeAudit: auditVia(designerClient) }, file.id);
+    await deleteProjectFile({ ...base, writeAudit: auditVia(designerClient) }, file.id, id);
     expect(await listProjectFiles(base, id)).toHaveLength(0);
     const dl = await designerClient.storage.from("project-files").download(path);
     expect(dl.error).not.toBeNull();
@@ -278,5 +280,91 @@ describe("檔案上傳與簽名網址", () => {
       .eq("action", "record.delete")
       .eq("target_id", file.id);
     expect(count).toBe(1);
+  });
+});
+
+describe("fix round 1", () => {
+  async function putPdf(client: SupabaseClient, projectId: string, name: string) {
+    const path = buildStoragePath(orgId, projectId, "floor_plan", name, crypto.randomUUID());
+    const { error } = await client.storage
+      .from("project-files")
+      .upload(path, PDF, { contentType: "application/pdf", upsert: false });
+    expect(error).toBeNull();
+    return path;
+  }
+
+  test("recordProjectFile 在伺服器端清理檔名後才寫入", async () => {
+    const id = await createProject(designer, input({ name: `清名-${sfx}` }));
+    const path = await putPdf(designerClient, id, "x.pdf");
+    const ctx: FileCtx = { orgId, supabase: designerClient };
+    await recordProjectFile(ctx, {
+      projectId: id,
+      kind: "floor_plan",
+      storagePath: path,
+      fileName: "a\\b‮fdp\u0001c.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: PDF.byteLength,
+    });
+    const [f] = await listProjectFiles(ctx, id);
+    expect(f.fileName).toBe("abfdpc.pdf");
+  });
+
+  test("recordProjectFile 拒絕不在允許清單的 MIME（含 SVG）", async () => {
+    const id = await createProject(designer, input({ name: `mime-${sfx}` }));
+    const path = await putPdf(designerClient, id, "y.pdf");
+    const ctx: FileCtx = { orgId, supabase: designerClient };
+    for (const mimeType of ["image/svg+xml", "text/html", "image/bmp"]) {
+      await expect(
+        recordProjectFile(ctx, { projectId: id, kind: "floor_plan", storagePath: path, fileName: "y.pdf", mimeType, sizeBytes: 5 }),
+      ).rejects.toThrow("不支援的檔案類型");
+    }
+  });
+
+  test("deleteProjectFile 帶入其他案場的檔案 id 被拒", async () => {
+    const a = await createProject(designer, input({ name: `刪A-${sfx}` }));
+    const b = await createProject(designer, input({ name: `刪B-${sfx}` }));
+    const path = await putPdf(designerClient, a, "z.pdf");
+    const ctx: FileCtx = { orgId, supabase: designerClient };
+    await recordProjectFile(ctx, {
+      projectId: a, kind: "floor_plan", storagePath: path, fileName: "z.pdf", mimeType: "application/pdf", sizeBytes: 5,
+    });
+    const [f] = await listProjectFiles(ctx, a);
+    await expect(deleteProjectFile(ctx, f.id, b)).rejects.toThrow();
+    expect(await listProjectFiles(ctx, a)).toHaveLength(1);
+  });
+
+  test("revealForProject：監工、非成員 designer、他案場 id 皆被擋且不寫稽核", async () => {
+    const withClient = await createProject(designer, input({ name: `守門-${sfx}`, clientName: "周", clientPhone: "0911000111" }));
+    const clientId = (await getProjectClientId(designer, withClient))!;
+    await setProjectMember(designer, withClient, supervisorId, true);
+    const noClient = await createProject(designer, input({ name: `守門無業主-${sfx}` }));
+    const adminOnly = await createProject(admin, input({ name: `守門admin-${sfx}`, clientName: "吳" }));
+
+    const before = await auditCount(clientId);
+    const audit = auditVia(designerClient);
+    let calls = 0;
+    const deps = (c: SupabaseClient) => ({
+      supabase: c,
+      writeAudit: async (e: Parameters<typeof audit>[0]) => {
+        calls++;
+        await audit(e);
+      },
+    });
+
+    const sup = await revealForProject({ orgId, role: "supervisor", supabase: supClient }, withClient, deps(supClient));
+    expect(sup).toEqual({ ok: false, message: "沒有權限" });
+    const nonMember = await revealForProject({ orgId, role: "designer", supabase: designerClient }, adminOnly, deps(designerClient));
+    expect(nonMember.ok).toBe(false);
+    const none = await revealForProject(designer, noClient, deps(designerClient));
+    expect(none.ok).toBe(false);
+    // 偽造的 projectId：不是案場
+    const fake = await revealForProject(designer, "00000000-0000-4000-8000-000000000000", deps(designerClient));
+    expect(fake.ok).toBe(false);
+    expect(calls).toBe(0);
+    expect(await auditCount(clientId)).toBe(before);
+
+    const ok = await revealForProject(designer, withClient, deps(designerClient));
+    expect(ok.ok).toBe(true);
+    expect(calls).toBe(1);
   });
 });

@@ -31,6 +31,19 @@ const ALLOWED_MIME = new Set([
   "application/octet-stream",
 ]);
 
+/** 伺服器登錄時使用：類型必須在 bucket 允許清單內（SVG 一律不在清單內）。 */
+export function isAllowedMime(mime: string): boolean {
+  const m = mime.trim().toLowerCase();
+  return !m.startsWith("image/svg") && ALLOWED_MIME.has(m);
+}
+
+/** 可直接內嵌顯示的圖片類型；其餘一律以附件下載。 */
+export function isInlineImageMime(mime: string): boolean {
+  return ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"].includes(
+    mime.trim().toLowerCase(),
+  );
+}
+
 const CAD_EXT = /\.(dwg|dxf)$/i;
 
 export interface UploadCandidate {
@@ -66,8 +79,9 @@ export function validateUpload(f: UploadCandidate): UploadCheck {
 /** 安全檔名：保留中文；移除 / \ 與控制字元、開頭的點與連續的點；空白收合；最長 100 字元。 */
 export function safeFileName(fileName: string): string {
   const cleaned = fileName
-    .replace(/[\/]/g, "")
-    .replace(/[\u0000-\u001f\u007f-\u009f]/g, "")
+    .replace(/[\/\\]/g, "")
+    // 控制字元與雙向控制字元（U+202A–202E、U+2066–2069，可用來偽裝副檔名）
+    .replace(/[\u0000-\u001f\u007f-\u009f‪-‮⁦-⁩]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .replace(/^\.+/, "")

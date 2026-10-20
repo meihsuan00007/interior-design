@@ -1,7 +1,15 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeAudit as defaultWriteAudit } from "@/lib/audit";
-import { SIGNED_URL_SECONDS, STORAGE_BUCKET, FILE_KINDS, type FileKind } from "@/lib/project-files";
+import {
+  FILE_KINDS,
+  isAllowedMime,
+  isInlineImageMime,
+  safeFileName,
+  SIGNED_URL_SECONDS,
+  STORAGE_BUCKET,
+  type FileKind,
+} from "@/lib/project-files";
 import { createClient } from "@/lib/supabase/server";
 import { UserError } from "@/server/actions";
 import { throwDbError } from "@/server/master/common";
@@ -66,13 +74,14 @@ export async function recordProjectFile(
   },
 ): Promise<void> {
   if (!FILE_KINDS.includes(input.kind)) throw new UserError("檔案類型無效");
+  if (!isAllowedMime(input.mimeType)) throw new UserError("不支援的檔案類型");
   const supabase = ctx.supabase ?? (await createClient());
   const { error } = await supabase.from("project_files").insert({
     organization_id: ctx.orgId,
     project_id: input.projectId,
     kind: input.kind,
     storage_path: input.storagePath,
-    file_name: input.fileName,
+    file_name: safeFileName(input.fileName),
     mime_type: input.mimeType,
     size_bytes: input.sizeBytes,
   });
@@ -94,7 +103,7 @@ export async function createSignedDownloadUrl(ctx: FileCtx, fileId: string): Pro
   if (error) throwDbError(error);
   if (!row) throw new UserError("找不到檔案，或沒有權限");
   const f = row as { storage_path: string; file_name: string; mime_type: string };
-  const isImage = f.mime_type.toLowerCase().startsWith("image/");
+  const isImage = isInlineImageMime(f.mime_type);
   const { data, error: se } = await supabase.storage
     .from(STORAGE_BUCKET)
     .createSignedUrl(f.storage_path, SIGNED_URL_SECONDS, isImage ? undefined : { download: f.file_name });
@@ -103,12 +112,13 @@ export async function createSignedDownloadUrl(ctx: FileCtx, fileId: string): Pro
 }
 
 /** 刪除：稽核先於刪除（失敗即中止）→ 刪 Storage 物件 → 刪資料列。 */
-export async function deleteProjectFile(ctx: FileCtx, fileId: string): Promise<void> {
+export async function deleteProjectFile(ctx: FileCtx, fileId: string, projectId: string): Promise<void> {
   const supabase = ctx.supabase ?? (await createClient());
   const { data: row, error } = await supabase
     .from("project_files")
     .select("id, storage_path")
     .eq("id", fileId)
+    .eq("project_id", projectId)
     .eq("organization_id", ctx.orgId)
     .maybeSingle();
   if (error) throwDbError(error);
@@ -131,6 +141,7 @@ export async function deleteProjectFile(ctx: FileCtx, fileId: string): Promise<v
     .from("project_files")
     .delete()
     .eq("id", fileId)
+    .eq("project_id", projectId)
     .eq("organization_id", ctx.orgId)
     .select("id");
   if (de) throwDbError(de);
@@ -138,4 +149,32 @@ export async function deleteProjectFile(ctx: FileCtx, fileId: string): Promise<v
 
   const { error: re } = await supabase.storage.from(STORAGE_BUCKET).remove([path]);
   if (re) console.error("刪除 Storage 物件失敗");
+}
+
+/** 批次產生縮圖簽名網址（一次呼叫）。回傳 storage_path -> url；失敗的項目不在結果內。 */
+export async function createSignedThumbUrls(
+  ctx: FileCtx,
+  files: { id: string; mimeType: string }[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const images = files.filter((f) => isInlineImageMime(f.mimeType));
+  if (images.length === 0) return out;
+  const supabase = ctx.supabase ?? (await createClient());
+  const { data: rows, error } = await supabase
+    .from("project_files")
+    .select("id, storage_path")
+    .eq("organization_id", ctx.orgId)
+    .in("id", images.map((f) => f.id));
+  if (error) throwDbError(error);
+  const pathById = new Map((rows as { id: string; storage_path: string }[] | null ?? []).map((r) => [r.id, r.storage_path]));
+  const paths = [...pathById.values()];
+  if (paths.length === 0) return out;
+  const { data, error: se } = await supabase.storage.from(STORAGE_BUCKET).createSignedUrls(paths, SIGNED_URL_SECONDS);
+  if (se || !data) return out;
+  const urlByPath = new Map(data.filter((d) => d.signedUrl && !d.error).map((d) => [d.path, d.signedUrl]));
+  for (const [id, path] of pathById) {
+    const u = urlByPath.get(path);
+    if (u) out.set(id, u);
+  }
+  return out;
 }

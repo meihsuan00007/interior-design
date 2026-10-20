@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { buildStoragePath, MAX_UPLOAD_BYTES, resolveUploadMime, safeFileName, validateUpload } from "@/server/projects/files";
+import { buildStoragePath, MAX_UPLOAD_BYTES, isAllowedMime, resolveUploadMime, safeFileName, validateUpload } from "@/server/projects/files";
 
 const MB = 1024 * 1024;
 
@@ -84,5 +84,27 @@ describe("buildStoragePath", () => {
   test("清理後為空則使用 file", () => {
     expect(buildStoragePath(org, proj, "other", "...", uuid).endsWith(`${uuid}-file`)).toBe(true);
     expect(buildStoragePath(org, proj, "other", "//", uuid).endsWith(`${uuid}-file`)).toBe(true);
+  });
+});
+
+describe("safeFileName（反斜線與雙向控制字元）", () => {
+  test("真正的反斜線被移除", () => {
+    expect(safeFileName("a\\b\\..\\c.pdf")).toBe("ab.c.pdf");
+    expect(safeFileName("C:\\dir\\file.pdf")).not.toContain("\\");
+  });
+
+  test("U+202E 等雙向控制字元被移除", () => {
+    expect(safeFileName("abc\u202Efdp.exe")).toBe("abcfdp.exe");
+    expect(safeFileName("a\u2066b\u2069c\u202Ad")).toBe("abcd");
+  });
+});
+
+describe("isAllowedMime", () => {
+  test("沿用 bucket 允許清單，SVG 與未知類型被拒", () => {
+    expect(isAllowedMime("application/pdf")).toBe(true);
+    expect(isAllowedMime("IMAGE/PNG")).toBe(true);
+    expect(isAllowedMime("image/svg+xml")).toBe(false);
+    expect(isAllowedMime("text/html")).toBe(false);
+    expect(isAllowedMime("")).toBe(false);
   });
 });
