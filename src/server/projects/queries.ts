@@ -3,11 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProjectStatus } from "@/db/schema/projects";
 import { decryptField } from "@/lib/crypto/field-encryption";
 import { escapeLike } from "@/lib/escape-like";
+import { MAX_QUERY_LENGTH } from "@/lib/limits";
 import { createClient } from "@/lib/supabase/server";
-import { throwDbError } from "@/server/master/common";
+import { throwDbError } from "@/server/db-errors";
 import { canHandleClient, type ProjectWriteCtx } from "./mutations";
-
-export const MAX_QUERY_LENGTH = 50;
 
 export type ProjectStatusFilter = ProjectStatus | "active";
 

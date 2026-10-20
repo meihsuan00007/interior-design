@@ -2,6 +2,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import type { ZodError } from "zod";
 import type { Role } from "@/lib/auth/permissions";
+import { UserError } from "@/server/db-errors";
 import {
   ForbiddenError,
   getAppContext,
@@ -11,16 +12,7 @@ import {
   type Membership,
 } from "@/server/context";
 
-/** 可預期的、可直接顯示給使用者的錯誤。 */
-export class UserError extends Error {
-  constructor(
-    message: string,
-    public readonly fieldErrors?: Record<string, string>,
-  ) {
-    super(message);
-    this.name = "UserError";
-  }
-}
+export { UserError };
 
 export type ActionResult =
   | { ok: true }

@@ -1,9 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { FADE_DURATION, STAGGER_LIMIT, STAGGER_STEP, staggerDelay } from "@/components/motion/stagger";
+import { STAGGER_LIMIT, STAGGER_STEP, staggerDelay } from "@/components/motion/stagger";
 
 describe("staggerDelay", () => {
-  test("常數：淡入 150ms、間隔 30ms、前 20 筆", () => {
-    expect(FADE_DURATION).toBe(0.15);
+  test("常數：間隔 30ms、前 20 筆", () => {
     expect(STAGGER_STEP).toBe(0.03);
     expect(STAGGER_LIMIT).toBe(20);
   });

@@ -1,11 +1,10 @@
 import "server-only";
 import type { TradeInput } from "@/lib/validation/master";
+import { assertAffected, throwDbError } from "@/server/db-errors";
 import {
-  assertAffected,
   auditThenRpc,
   getClient,
   moveSortable,
-  throwDbError,
   type MasterDeps,
 } from "./common";
 

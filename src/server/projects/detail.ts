@@ -4,7 +4,7 @@ import type { ProjectStatus } from "@/db/schema/projects";
 import { can, type MemberPerms, type Role } from "@/lib/auth/permissions";
 import { decryptField } from "@/lib/crypto/field-encryption";
 import { createClient } from "@/lib/supabase/server";
-import { throwDbError } from "@/server/master/common";
+import { throwDbError } from "@/server/db-errors";
 import { decryptClientName } from "@/server/pii";
 
 export interface DetailCtx {

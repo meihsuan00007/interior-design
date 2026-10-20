@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, test } from "vitest";
 import { createCatalogItem, updateCatalogItem } from "@/server/master/catalog";
-import { MasterError } from "@/server/master/common";
+import { UserError } from "@/server/db-errors";
 import { createVendor, updateVendor } from "@/server/master/vendors";
 
 // vendors、catalog_items 目前沒有唯一限制；若日後加上，23505 必須對應「名稱已存在」。
@@ -36,7 +36,7 @@ describe("23505 對應「名稱已存在」", () => {
   const deps = { supabase: fakeClient("23505") };
 
   test("廠商 create／update", async () => {
-    await expect(createVendor(ORG, vendor, deps)).rejects.toThrow(new MasterError("名稱已存在"));
+    await expect(createVendor(ORG, vendor, deps)).rejects.toThrow(new UserError("名稱已存在"));
     await expect(updateVendor(ORG, ID, vendor, deps)).rejects.toThrow("名稱已存在");
   });
 

@@ -14,6 +14,7 @@ import { createTrade, deleteTrade, moveTrade, updateTrade } from "@/server/maste
 
 const PATH = "/master/trades";
 const idSchema = z.uuid();
+const NOT_FOUND: ActionResult = { ok: false, message: "找不到資料" };
 
 export async function saveTradeAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const parsed = tradeSchema.safeParse({
@@ -24,16 +25,19 @@ export async function saveTradeAction(_prev: ActionResult | null, fd: FormData):
   });
   if (!parsed.success) return validationFailure(parsed.error);
   const id = formString(fd, "id");
+  if (id && !idSchema.safeParse(id).success) return NOT_FOUND;
   return runMasterWrite(PATH, async (orgId) => {
-    if (id) await updateTrade(orgId, idSchema.parse(id), parsed.data);
+    if (id) await updateTrade(orgId, id, parsed.data);
     else await createTrade(orgId, parsed.data);
   });
 }
 
 export async function deleteTradeAction(id: string): Promise<ActionResult> {
-  return runMasterWrite(PATH, (orgId) => deleteTrade(orgId, idSchema.parse(id)));
+  if (!idSchema.safeParse(id).success) return NOT_FOUND;
+  return runMasterWrite(PATH, (orgId) => deleteTrade(orgId, id));
 }
 
 export async function moveTradeAction(id: string, direction: "up" | "down"): Promise<ActionResult> {
-  return runMasterWrite(PATH, (orgId) => moveTrade(orgId, idSchema.parse(id), direction === "up" ? "up" : "down"));
+  if (!idSchema.safeParse(id).success) return NOT_FOUND;
+  return runMasterWrite(PATH, (orgId) => moveTrade(orgId, id, direction === "up" ? "up" : "down"));
 }

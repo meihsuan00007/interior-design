@@ -2,11 +2,10 @@ import "server-only";
 import { decryptField, encryptField } from "@/lib/crypto/field-encryption";
 import type { VendorInput } from "@/lib/validation/master";
 import { maskPhone } from "@/server/pii";
+import { assertAffected, throwDbError } from "@/server/db-errors";
 import {
-  assertAffected,
   auditBeforeDelete,
   getClient,
-  throwDbError,
   verifyRefs,
   type MasterDeps,
 } from "./common";

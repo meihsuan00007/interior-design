@@ -1,11 +1,11 @@
 import "server-only";
 import { escapeLike } from "@/lib/escape-like";
+import { MAX_QUERY_LENGTH } from "@/lib/limits";
 import type { CatalogItemInput, PricingMethod } from "@/lib/validation/master";
+import { assertAffected, throwDbError } from "@/server/db-errors";
 import {
-  assertAffected,
   auditBeforeDelete,
   getClient,
-  throwDbError,
   verifyRefs,
   type MasterDeps,
 } from "./common";
@@ -82,7 +82,7 @@ export async function listCatalogItems(
     .eq("organization_id", orgId)
     .order("name", { ascending: true });
   if (filter.tradeId) query = query.eq("trade_id", filter.tradeId);
-  const q = filter.q?.trim();
+  const q = filter.q?.trim().slice(0, MAX_QUERY_LENGTH);
   if (q) query = query.ilike("name", `%${escapeLike(q)}%`);
   const { data, error } = await query;
   if (error) throwDbError(error);

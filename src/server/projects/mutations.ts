@@ -4,8 +4,7 @@ import { can, type Role } from "@/lib/auth/permissions";
 import { encryptField } from "@/lib/crypto/field-encryption";
 import { createClient } from "@/lib/supabase/server";
 import type { ProjectInput } from "@/lib/validation/project";
-import { UserError } from "@/server/actions";
-import { assertAffected, throwDbError } from "@/server/master/common";
+import { assertAffected, throwDbError, throwRpcError, UserError } from "@/server/db-errors";
 import { encryptClientPii } from "@/server/pii";
 
 /** 寫入情境：orgId 必須來自 getCurrentOrg，role 為該公司的角色。supabase 僅供測試注入。 */
@@ -41,12 +40,6 @@ function projectColumns(i: ProjectInput) {
 function editColumns(i: ProjectInput) {
   const { address_full_enc, ...rest } = projectColumns(i);
   return i.addressTouched ? { ...rest, address_full_enc } : rest;
-}
-
-/** rpc 錯誤：22023（輸入不合法）使用函式自己的友善訊息，其餘走共同對應。 */
-function throwRpcError(error: { code?: string; message?: string }): never {
-  if (error.code === "22023" && error.message) throw new UserError(error.message);
-  throwDbError(error);
 }
 
 function encryptInputClient(i: ProjectInput) {
@@ -198,12 +191,11 @@ export async function setProjectMember(
   const supabase = ctx.supabase ?? (await createClient());
   const { error } = await supabase.rpc("set_project_member", { p_project: projectId, p_user: userId, p_add: add });
   if (!error) return;
-  if (error.code === "42501") throw new UserError("沒有權限");
-  if (error.code === "22023") {
-    const m = error.message ?? "";
-    if (m.includes("不是此公司成員")) throw new UserError("此使用者不屬於本公司");
-    if (m.includes("至少需保留")) throw new UserError("案場至少需保留一位可編輯者");
-    throw new UserError("成員設定無效");
-  }
-  throwDbError(error);
+  throwRpcError(error, {
+    invalid: "成員設定無效",
+    byHint: {
+      not_org_member: "此使用者不屬於本公司",
+      last_editor: "案場至少需保留一位可編輯者",
+    },
+  });
 }

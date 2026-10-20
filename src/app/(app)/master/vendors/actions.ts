@@ -12,6 +12,7 @@ import { createVendor, deleteVendor, updateVendor } from "@/server/master/vendor
 
 const PATH = "/master/vendors";
 const idSchema = z.uuid();
+const NOT_FOUND: ActionResult = { ok: false, message: "找不到資料" };
 
 export async function saveVendorAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const parsed = vendorSchema.safeParse({
@@ -24,15 +25,17 @@ export async function saveVendorAction(_prev: ActionResult | null, fd: FormData)
   });
   if (!parsed.success) return validationFailure(parsed.error);
   const id = formString(fd, "id");
+  if (id && !idSchema.safeParse(id).success) return NOT_FOUND;
   return runMasterWrite(PATH, async (orgId) => {
     if (id) {
       const phoneTouched = formString(fd, "phoneTouched") === "1";
-      await updateVendor(orgId, idSchema.parse(id), { ...parsed.data, phoneTouched });
+      await updateVendor(orgId, id, { ...parsed.data, phoneTouched });
     }
     else await createVendor(orgId, parsed.data);
   });
 }
 
 export async function deleteVendorAction(id: string): Promise<ActionResult> {
-  return runMasterWrite(PATH, (orgId) => deleteVendor(orgId, idSchema.parse(id)));
+  if (!idSchema.safeParse(id).success) return NOT_FOUND;
+  return runMasterWrite(PATH, (orgId) => deleteVendor(orgId, id));
 }

@@ -2,15 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeAudit as defaultWriteAudit } from "@/lib/audit";
 import { createClient } from "@/lib/supabase/server";
-import { UserError } from "@/server/actions";
-
-/** 主檔的可預期錯誤（可直接顯示給使用者）。 */
-export class MasterError extends UserError {
-  constructor(message: string, fieldErrors?: Record<string, string>) {
-    super(message, fieldErrors);
-    this.name = "MasterError";
-  }
-}
+import { assertAffected, throwDbError, throwRpcError, UserError } from "@/server/db-errors";
 
 /** 測試可注入；正式環境一律使用帶使用者 JWT 的 client（RLS 生效）。 */
 export interface MasterDeps {
@@ -20,27 +12,6 @@ export interface MasterDeps {
 
 export async function getClient(deps?: MasterDeps): Promise<SupabaseClient> {
   return deps?.supabase ?? (await createClient());
-}
-
-interface PgErrorLike {
-  code?: string;
-  message?: string;
-}
-
-/** 將資料庫錯誤轉成友善訊息；未知錯誤不帶入原始內容。 */
-export function throwDbError(
-  error: PgErrorLike,
-  messages: { duplicate?: string; inUse?: string } = {},
-): never {
-  if (error.code === "23505") throw new MasterError(messages.duplicate ?? "資料已存在");
-  if (error.code === "23503") throw new MasterError(messages.inUse ?? "資料仍被使用，無法刪除");
-  if (error.code === "42501") throw new MasterError("沒有權限");
-  throw new Error(`資料庫操作失敗（${error.code ?? "unknown"}）`);
-}
-
-/** 更新或刪除時沒有命中任何列：不存在，或被 RLS 擋下。 */
-export function assertAffected(rows: unknown[] | null): void {
-  if (!rows || rows.length === 0) throw new MasterError("找不到資料，或沒有權限");
 }
 
 export async function audit(
@@ -55,14 +26,6 @@ export async function audit(
     targetId,
     organizationId,
   });
-}
-
-/** rpc 函式的錯誤：23503（仍被使用）與 P0002（找不到）使用函式自己的友善訊息。 */
-function throwRpcError(error: PgErrorLike): never {
-  if ((error.code === "23503" || error.code === "P0002") && error.message) {
-    throw new MasterError(error.message);
-  }
-  throwDbError(error);
 }
 
 /** 刪除前先寫稽核（失敗即中止，不刪除）。 */
@@ -115,7 +78,7 @@ export async function moveSortable(
   if (error) throwDbError(error);
   const rows = (data ?? []) as { id: string; sort: number }[];
   const index = rows.findIndex((r) => r.id === id);
-  if (index < 0) throw new MasterError("找不到資料，或沒有權限");
+  if (index < 0) throw new UserError("找不到資料，或沒有權限");
   const target = direction === "up" ? index - 1 : index + 1;
   if (target < 0 || target >= rows.length) return;
 
@@ -161,5 +124,5 @@ export async function verifyRefs(
     if (error) throwDbError(error);
     if (count !== ids.length) errors[ref.field] = "選項無效";
   }
-  if (Object.keys(errors).length > 0) throw new MasterError("請修正標示的欄位", errors);
+  if (Object.keys(errors).length > 0) throw new UserError("請修正標示的欄位", errors);
 }

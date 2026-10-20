@@ -24,6 +24,8 @@
 - 本機需要 Docker Desktop（Supabase 本機環境）。啟動：`npx supabase start`；重建資料庫：`npx supabase db reset`。
 - 測試：`npm test`（Vitest）、`npm run test:db`（先 `supabase db reset` 再跑 pgTAP，含 RLS／MFA／守門測試；整合測試會在本機資料庫留下資料，pgTAP 的計數斷言需要乾淨的種子資料，所以不要單獨跑 `npx supabase test db`）。
 - 使用者請求一律走 Supabase client（帶 JWT，受 RLS 約束）；Drizzle `db` 以 postgres 角色連線、會繞過 RLS，只用於遷移、種子與受控的伺服器端特權寫入。
+- Supabase Storage 的物件鍵必須是 ASCII（中文會回 InvalidKey，裁決 R22）；原始檔名（含中文）存在資料表欄位供顯示，鍵內檔名以底線取代非 ASCII 字元。
+- 用戶端元件（`"use client"`）的檔名要保持簡短：專案路徑含中文，過長的檔名會讓 Turbopack 當掉（panic）。
 - 新增資料表時，`supabase/tests/guards.test.sql` 會檢查 RLS、`mfa_required` policy、anon 無權限、organization_id 不可變更 trigger；必須一併補上。
 
 ## 上線前必做清單
@@ -34,6 +36,7 @@
 - 考慮開啟 `secure_password_change`。
 - 選用：Supabase `[auth.sessions] inactivity_timeout` 作為閒置登出第二道防線——**雲端版需 Pro 付費方案，啟用前須經使用者同意**。
 - 歷史資料盤點：[docs/legacy-data-inventory.md](docs/legacy-data-inventory.md)。
+- 無障礙專項（裁決 R25）：表單群組使用 `fieldset`／`legend`，欄位錯誤加上 `aria-describedby` 與 `aria-invalid`。
 
 ## 個資與資料安全（硬性規定）
 

@@ -13,6 +13,7 @@ import { createCatalogItem, deleteCatalogItem, updateCatalogItem } from "@/serve
 
 const PATH = "/master/catalog";
 const idSchema = z.uuid();
+const NOT_FOUND: ActionResult = { ok: false, message: "找不到資料" };
 
 export async function saveCatalogItemAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const parsed = catalogItemSchema.safeParse({
@@ -26,12 +27,14 @@ export async function saveCatalogItemAction(_prev: ActionResult | null, fd: Form
   });
   if (!parsed.success) return validationFailure(parsed.error);
   const id = formString(fd, "id");
+  if (id && !idSchema.safeParse(id).success) return NOT_FOUND;
   return runMasterWrite(PATH, async (orgId) => {
-    if (id) await updateCatalogItem(orgId, idSchema.parse(id), parsed.data);
+    if (id) await updateCatalogItem(orgId, id, parsed.data);
     else await createCatalogItem(orgId, parsed.data);
   });
 }
 
 export async function deleteCatalogItemAction(id: string): Promise<ActionResult> {
-  return runMasterWrite(PATH, (orgId) => deleteCatalogItem(orgId, idSchema.parse(id)));
+  if (!idSchema.safeParse(id).success) return NOT_FOUND;
+  return runMasterWrite(PATH, (orgId) => deleteCatalogItem(orgId, id));
 }

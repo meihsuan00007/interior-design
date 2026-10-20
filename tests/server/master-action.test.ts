@@ -38,7 +38,7 @@ vi.mock("@/server/master/trades", () => ({
   moveTrade: vi.fn(),
 }));
 
-import { MasterError } from "@/server/master/common";
+import { UserError } from "@/server/db-errors";
 import { formBool, formInt, formNullable, formString, runMasterWrite } from "@/server/master/action";
 import { saveTradeAction } from "@/app/(app)/master/trades/actions";
 import { createTrade } from "@/server/master/trades";
@@ -71,9 +71,9 @@ describe("runMasterWrite", () => {
     expect(r).toEqual({ ok: false, message: "沒有權限" });
   });
 
-  test("MasterError 保留訊息與欄位錯誤", async () => {
+  test("UserError 保留訊息與欄位錯誤", async () => {
     const r = await runMasterWrite("/x", async () => {
-      throw new MasterError("名稱已存在", { name: "重複" });
+      throw new UserError("名稱已存在", { name: "重複" });
     });
     expect(r).toEqual({ ok: false, message: "名稱已存在", fieldErrors: { name: "重複" } });
   });

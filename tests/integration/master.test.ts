@@ -3,7 +3,8 @@ import { beforeAll, describe, expect, test } from "vitest";
 import type { AuditEvent } from "@/lib/audit";
 import { loadAppContext } from "@/server/context";
 import { createCatalogItem, deleteCatalogItem, listCatalogItems } from "@/server/master/catalog";
-import { MasterError, type MasterDeps } from "@/server/master/common";
+import { UserError } from "@/server/db-errors";
+import type { MasterDeps } from "@/server/master/common";
 import { createTrade, deleteTrade, listTrades, moveTrade, updateTrade } from "@/server/master/trades";
 import { createUnit, deleteUnit, listUnits } from "@/server/master/units";
 import { createVendor, deleteVendor, listVendors, updateVendor } from "@/server/master/vendors";
@@ -102,13 +103,13 @@ describe("工種", () => {
     const name = `測試工種-${sfx}-dup`;
     await createTrade(jiaOrg, trade(name), designer);
     const err = await createTrade(jiaOrg, trade(name), designer).catch((e) => e);
-    expect(err).toBeInstanceOf(MasterError);
+    expect(err).toBeInstanceOf(UserError);
     expect(err.message).toBe("名稱已存在");
   });
 
   test("supervisor 更新工種被拒（RLS 不命中任何列）", async () => {
     const created = await createTrade(jiaOrg, trade(`測試工種-${sfx}-upd`), designer);
-    await expect(updateTrade(jiaOrg, created.id, trade("被改掉了"), supervisor)).rejects.toBeInstanceOf(MasterError);
+    await expect(updateTrade(jiaOrg, created.id, trade("被改掉了"), supervisor)).rejects.toBeInstanceOf(UserError);
     const list = await listTrades(jiaOrg, designer);
     expect(list.find((t) => t.id === created.id)?.name).toBe(`測試工種-${sfx}-upd`);
   });
@@ -117,7 +118,7 @@ describe("工種", () => {
     const t = await createTrade(jiaOrg, trade(`測試工種-${sfx}-ref`), designer);
     const item = await createCatalogItem(jiaOrg, itemInput(`測試品項-${sfx}-ref`, { tradeId: t.id }), designer);
     const err = await deleteTrade(jiaOrg, t.id, designer).catch((e) => e);
-    expect(err).toBeInstanceOf(MasterError);
+    expect(err).toBeInstanceOf(UserError);
     expect(err.message).toBe("此工種仍有品項使用，無法刪除");
     expect((await listTrades(jiaOrg, designer)).some((x) => x.id === t.id)).toBe(true);
     const items = await listCatalogItems(jiaOrg, { tradeId: t.id }, designer);
@@ -223,7 +224,7 @@ describe("廠商", () => {
   test("更新可清空電話；supervisor 可讀不可寫", async () => {
     const created = await createVendor(jiaOrg, vendorInput(`測試廠商-${sfx}-w`, { phone: "0912345678" }), designer);
     expect((await listVendors(jiaOrg, supervisor)).some((v) => v.id === created.id)).toBe(true);
-    await expect(updateVendor(jiaOrg, created.id, vendorInput("改名"), supervisor)).rejects.toBeInstanceOf(MasterError);
+    await expect(updateVendor(jiaOrg, created.id, vendorInput("改名"), supervisor)).rejects.toBeInstanceOf(UserError);
     await expect(createVendor(jiaOrg, vendorInput(`測試廠商-${sfx}-sup`), supervisor)).rejects.toThrow("沒有權限");
 
     await updateVendor(jiaOrg, created.id, vendorInput(`測試廠商-${sfx}-w`, { phone: "" }), designer);
@@ -259,7 +260,7 @@ describe("R14／R15 補強", () => {
 
   test("supervisor 刪除工種被拒，資料仍在", async () => {
     const t = await createTrade(jiaOrg, trade(`測試工種-${sfx}-sd`), designer);
-    await expect(deleteTrade(jiaOrg, t.id, supervisor)).rejects.toBeInstanceOf(MasterError);
+    await expect(deleteTrade(jiaOrg, t.id, supervisor)).rejects.toBeInstanceOf(UserError);
     expect((await listTrades(jiaOrg, designer)).some((x) => x.id === t.id)).toBe(true);
   });
 
@@ -269,14 +270,14 @@ describe("R14／R15 補強", () => {
     const yiVendor = await createVendor(yiOrg, vendorInput(`乙廠商-${sfx}`), yiAdmin);
 
     const e1 = await createCatalogItem(jiaOrg, itemInput(`x-${sfx}`, { tradeId: yiTrade.id }), designer).catch((e) => e);
-    expect(e1).toBeInstanceOf(MasterError);
+    expect(e1).toBeInstanceOf(UserError);
     expect(e1.fieldErrors).toEqual({ tradeId: "選項無效" });
     const e2 = await createCatalogItem(jiaOrg, itemInput(`x-${sfx}`, { unitId: yiUnit.id }), designer).catch((e) => e);
     expect(e2.fieldErrors).toEqual({ unitId: "選項無效" });
     const e3 = await createCatalogItem(jiaOrg, itemInput(`x-${sfx}`, { defaultVendorId: yiVendor.id }), designer).catch((e) => e);
     expect(e3.fieldErrors).toEqual({ defaultVendorId: "選項無效" });
     const e4 = await createVendor(jiaOrg, vendorInput(`x-${sfx}`, { tradeIds: [yiTrade.id] }), designer).catch((e) => e);
-    expect(e4).toBeInstanceOf(MasterError);
+    expect(e4).toBeInstanceOf(UserError);
     expect(e4.fieldErrors).toEqual({ tradeIds: "選項無效" });
     expect(await listCatalogItems(jiaOrg, { q: `x-${sfx}` }, designer)).toEqual([]);
   });

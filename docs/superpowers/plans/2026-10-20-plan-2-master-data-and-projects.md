@@ -161,7 +161,7 @@ app.set_project_member(p_project uuid, p_user uuid, p_add boolean) returns void
   decryptClientName(row: { name_enc: string }): string
   revealClientContact(clientId: string, organizationId: string): Promise<{ phone: string | null; email: string | null; nationalId: string | null }>
   // 先寫 client.view_pii 稽核（metadata: { fields: "phone,email,national_id" }），再以 RLS client 讀取並解密
-  maskPhone(phone: string): string   // "0912345678" → "0912-***-678"；長度 < 6 回傳 "***"
+  maskPhone(phone: string): string   // "0912345678" → "0912-***-678"；長度 < 8 回傳 "***"
   ```
 - Produces：`npm run test:integration`——對本機 Supabase 執行，用 seed 使用者以 `signInWithPassword` 取得 client。整合測試不併入 `npm test`。
 

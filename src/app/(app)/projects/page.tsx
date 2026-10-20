@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader } from "@/components/ui/table";
 import { PROJECT_STATUSES, PROJECT_STATUS_LABEL, type ProjectStatus } from "@/db/schema/projects";
+import { MAX_QUERY_LENGTH } from "@/lib/limits";
 import { cn } from "@/lib/utils";
 import { getAppContext, getCurrentOrgFromCookie } from "@/server/context";
 import {
   listProjects,
-  MAX_QUERY_LENGTH,
   type ProjectListRow,
   type ProjectStatusFilter,
 } from "@/server/projects/queries";
