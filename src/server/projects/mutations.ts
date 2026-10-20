@@ -150,3 +150,60 @@ export async function updateProject(ctx: ProjectWriteCtx, id: string, input: Pro
   if (e2) throwDbError(e2);
   assertAffected(updated);
 }
+
+export type ContactField = "phone" | "email" | "national_id";
+const CONTACT_FIELDS: ContactField[] = ["phone", "email", "national_id"];
+
+/** 案場的業主 id（經 RLS 讀取；看不到案場或沒有業主回傳 null）。 */
+export async function getProjectClientId(ctx: ProjectWriteCtx, projectId: string): Promise<string | null> {
+  const supabase = ctx.supabase ?? (await createClient());
+  const { data, error } = await supabase
+    .from("projects")
+    .select("client_id")
+    .eq("id", projectId)
+    .eq("organization_id", ctx.orgId)
+    .maybeSingle();
+  if (error) throwDbError(error);
+  return (data as { client_id: string | null } | null)?.client_id ?? null;
+}
+
+/** R16：明確清除單一聯絡欄位（密文與盲索引一併設為 null）。僅能處理業主區塊的角色可呼叫。 */
+export async function clearClientContactField(
+  ctx: ProjectWriteCtx,
+  projectId: string,
+  field: ContactField,
+): Promise<void> {
+  if (!CONTACT_FIELDS.includes(field)) throw new UserError("欄位無效");
+  if (!canHandleClient(ctx.role)) throw new UserError("沒有權限");
+  const clientId = await getProjectClientId(ctx, projectId);
+  if (!clientId) throw new UserError("找不到業主");
+  const supabase = ctx.supabase ?? (await createClient());
+  const { data, error } = await supabase
+    .from("clients")
+    .update({ [`${field}_enc`]: null, [`${field}_bidx`]: null })
+    .eq("id", clientId)
+    .eq("organization_id", ctx.orgId)
+    .select("id");
+  if (error) throwDbError(error);
+  assertAffected(data);
+}
+
+/** 指派／移除案場成員。資料庫函式的錯誤轉成中文訊息。 */
+export async function setProjectMember(
+  ctx: ProjectWriteCtx,
+  projectId: string,
+  userId: string,
+  add: boolean,
+): Promise<void> {
+  const supabase = ctx.supabase ?? (await createClient());
+  const { error } = await supabase.rpc("set_project_member", { p_project: projectId, p_user: userId, p_add: add });
+  if (!error) return;
+  if (error.code === "42501") throw new UserError("沒有權限");
+  if (error.code === "22023") {
+    const m = error.message ?? "";
+    if (m.includes("不是此公司成員")) throw new UserError("此使用者不屬於本公司");
+    if (m.includes("至少需保留")) throw new UserError("案場至少需保留一位可編輯者");
+    throw new UserError("成員設定無效");
+  }
+  throwDbError(error);
+}

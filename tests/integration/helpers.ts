@@ -17,3 +17,25 @@ export async function signInAs(email: string): Promise<SupabaseClient> {
 export function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 10);
 }
+
+/** 與 writeAudit 相同的寫入規則，但使用測試 client 而非 cookie client。 */
+export function auditVia(supabase: SupabaseClient) {
+  return async (e: {
+    action: string;
+    targetType: string;
+    targetId: string | null;
+    organizationId?: string;
+    metadata?: Record<string, string | number | boolean>;
+  }) => {
+    const { data } = await supabase.auth.getUser();
+    const { error } = await supabase.from("audit_logs").insert({
+      organization_id: e.organizationId,
+      actor_id: data.user!.id,
+      action: e.action,
+      target_type: e.targetType,
+      target_id: e.targetId,
+      metadata: e.metadata ?? {},
+    });
+    if (error) throw new Error(error.message);
+  };
+}
