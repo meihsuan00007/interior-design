@@ -34,6 +34,7 @@
    npm run dev
    ```
 2. 看到 `✓ Ready` 和 `Local: http://localhost:3000` 就是啟動好了。
+   - ⚠️ 如果 3000 被別的程式占用（例如 WSL 或 Docker），會自動改用 **3001、3002…**，終端機會出現 `Port 3000 is in use … using available port 3002 instead`。**以 `Local:` 那一行顯示的網址為準**，下面所有 `localhost:3000` 都換成那個網址。
 3. **這個終端機要一直開著**，關掉網站就會停。要停止時，在終端機按 **Ctrl + C**。
 
 > 也可以直接跟 Claude Code 說「幫我啟動資料庫和網站」，它會幫你執行步驟 3、4。
