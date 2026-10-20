@@ -10,7 +10,7 @@ export function ListItem({
   as?: "li" | "tr";
   index: number;
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }) {
   const delay = staggerDelay(index);
   const Tag = as;

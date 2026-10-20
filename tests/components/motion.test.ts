@@ -16,7 +16,7 @@ function render(reduced: boolean, node: () => React.ReactElement): string {
 }
 
 describe("FadeIn", () => {
-  const node = () => createElement(FadeIn, { className: "x", children: "內容" });
+  const node = () => createElement(FadeIn, { className: "x" }, "內容");
 
   test("減少動態開啟與關閉時輸出完全相同", () => {
     expect(render(true, node)).toBe(render(false, node));
@@ -32,8 +32,8 @@ describe("FadeIn", () => {
 
 describe("ListItem", () => {
   test("li／tr 標籤固定，與減少動態無關", () => {
-    const li = () => createElement(ListItem, { index: 0, children: "a" });
-    const tr = () => createElement(ListItem, { index: 0, as: "tr", children: "a" });
+    const li = () => createElement(ListItem, { index: 0 }, "a");
+    const tr = () => createElement(ListItem, { index: 0, as: "tr" }, "a");
     expect(render(true, li)).toBe(render(false, li));
     expect(render(true, li).startsWith("<li")).toBe(true);
     expect(render(true, tr)).toBe(render(false, tr));
@@ -41,7 +41,7 @@ describe("ListItem", () => {
   });
 
   test("前 20 筆帶 30ms 的延遲，之後不帶動畫", () => {
-    const at = (i: number) => render(true, () => createElement(ListItem, { index: i, children: "a" }));
+    const at = (i: number) => render(true, () => createElement(ListItem, { index: i }, "a"));
     expect(at(0)).not.toMatch(/opacity/i);
     expect(at(2)).toContain("animation-delay:0.06s");
     expect(at(19)).toContain("animation-delay:0.57s");
